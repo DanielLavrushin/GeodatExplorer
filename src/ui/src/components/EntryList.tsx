@@ -1,19 +1,21 @@
+import { useMemo, useState } from "react";
 import {
   Box,
-  List,
   ListItem,
   ListItemText,
   Typography,
   Chip,
   Stack,
   TextField,
+  Button,
 } from "@mui/material";
 import LanguageIcon from "@mui/icons-material/Language";
 import GpsFixedIcon from "@mui/icons-material/GpsFixed";
 import SearchIcon from "@mui/icons-material/Search";
 import CodeIcon from "@mui/icons-material/Code";
 import HubIcon from "@mui/icons-material/Hub";
-import { geodat } from "../types";
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
+import { geodat } from "../wailsjs/go/models";
 
 interface Props {
   category: string | null;
@@ -24,7 +26,7 @@ interface Props {
 }
 
 const typeConfig: Record<
-  geodat.Entry["type"],
+  string,
   { icon: React.ReactNode; color: string; label: string }
 > = {
   domain: {
@@ -52,7 +54,14 @@ const typeConfig: Record<
     color: "#9c27b0",
     label: "cidr",
   },
+  include: {
+    icon: <AccountTreeIcon sx={{ fontSize: 16 }} />,
+    color: "#00bcd4",
+    label: "include",
+  },
 };
+
+const CHUNK_SIZE = 2000;
 
 export function EntryList({
   category,
@@ -61,9 +70,17 @@ export function EntryList({
   onFilterChange,
   loading,
 }: Props) {
-  const filtered = entries.filter((e) =>
-    e.value.toLowerCase().includes(filter.toLowerCase())
-  );
+  const [visibleCount, setVisibleCount] = useState(CHUNK_SIZE);
+
+  const filtered = useMemo(() => {
+    setVisibleCount(CHUNK_SIZE);
+    return entries.filter((e) =>
+      e.value.toLowerCase().includes(filter.toLowerCase())
+    );
+  }, [entries, filter]);
+
+  const visible = filtered.slice(0, visibleCount);
+  const hasMore = visibleCount < filtered.length;
 
   return (
     <Box
@@ -81,7 +98,7 @@ export function EntryList({
               {category}
             </Typography>
             <Chip
-              label={`${entries.length} entries`}
+              label={`${filtered.length} entries`}
               size="small"
               variant="outlined"
             />
@@ -140,14 +157,15 @@ export function EntryList({
           </Typography>
         </Box>
       ) : (
-        <List sx={{ flex: 1, overflow: "auto", py: 0 }} dense>
-          {filtered.map((entry, i) => {
-            const config = typeConfig[entry.type];
+        <Box sx={{ flex: 1, overflow: "auto" }}>
+          {visible.map((entry, i) => {
+            const config = typeConfig[entry.type] ?? typeConfig.domain;
             return (
               <ListItem
                 key={i}
                 sx={{
-                  py: 0.5,
+                  py: 0.25,
+                  minHeight: 28,
                   "&:hover": { bgcolor: "action.hover" },
                 }}
               >
@@ -168,12 +186,24 @@ export function EntryList({
                   primaryTypographyProps={{
                     fontFamily: "monospace",
                     fontSize: 13,
+                    noWrap: true,
                   }}
                 />
               </ListItem>
             );
           })}
-        </List>
+          {hasMore && (
+            <Box sx={{ p: 2, textAlign: "center" }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setVisibleCount((c) => c + CHUNK_SIZE)}
+              >
+                Load more ({filtered.length - visibleCount} remaining)
+              </Button>
+            </Box>
+          )}
+        </Box>
       )}
     </Box>
   );

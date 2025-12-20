@@ -2,6 +2,7 @@ package geodat
 
 import (
 	"net/netip"
+	"strings"
 
 	"github.com/urlesistiana/v2dat/v2data"
 )
@@ -16,17 +17,23 @@ func LoadDomainsFromCategories(geodataPath string, categories []string) ([]Entry
 	save := func(tag string, domainList []*v2data.Domain) error {
 		for _, d := range domainList {
 			entry := Entry{Value: d.Value}
-			switch d.Type {
-			case v2data.Domain_Plain:
-				entry.Type = "keyword"
-			case v2data.Domain_Regex:
-				entry.Type = "regexp"
-			case v2data.Domain_Full:
-				entry.Type = "full"
-			case v2data.Domain_Domain:
-				entry.Type = "domain"
-			default:
-				entry.Type = "domain"
+
+			if strings.HasPrefix(d.Value, "include:") {
+				entry.Type = "include"
+				entry.Value = strings.TrimPrefix(d.Value, "include:")
+			} else {
+				switch d.Type {
+				case v2data.Domain_Plain:
+					entry.Type = "keyword"
+				case v2data.Domain_Regex:
+					entry.Type = "regexp"
+				case v2data.Domain_Full:
+					entry.Type = "full"
+				case v2data.Domain_Domain:
+					entry.Type = "domain"
+				default:
+					entry.Type = "domain"
+				}
 			}
 			allEntries = append(allEntries, entry)
 		}
