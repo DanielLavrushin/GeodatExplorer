@@ -41,11 +41,22 @@ func (a *App) ListGeoIPCategories(path string) ([]string, error) {
 }
 
 // LoadDomains loads domains from specified categories
-func (a *App) LoadDomains(path string, categories []string) ([]string, error) {
-	return geodat.LoadDomainsFromCategories(path, categories)
+func (a *App) LoadDomains(path string, categories []string) ([]geodat.Entry, error) {
+	cats, err := geodat.LoadDomainsFromCategories(path, categories)
+	if err != nil {
+		return nil, err
+	}
+
+	return cats, nil
 }
 
 // LoadIPs loads IPs from specified categories
-func (a *App) LoadIPs(path string, categories []string) ([]string, error) {
-	return geodat.LoadIpsFromCategories(path, categories)
+func (a *App) LoadIPs(path string, categories []string) ([]geodat.Entry, error) {
+	cats, err := geodat.LoadIpsFromCategories(path, categories)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return cats, nil
 }

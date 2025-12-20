@@ -5,3 +5,5 @@ export interface FileState {
   type: FileType;
   categories: string[];
 }
+
+export { geodat } from "../wailsjs/go/models";
