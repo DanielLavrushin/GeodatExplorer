@@ -21,20 +21,18 @@ export function WelcomeScreen({ onOpenFile, loading }: Props) {
         sx={{
           p: 6,
           textAlign: "center",
-          maxWidth: 400,
         }}
-        elevation={3}
+        elevation={10}
       >
         <PublicIcon sx={{ fontSize: 64, color: "primary.main", mb: 2 }} />
         <Typography variant="h5" gutterBottom>
           GeodatExplorer
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+        <Typography variant="body2" sx={{ mb: 2 }}>
           Browse and explore v2ray geosite and geoip DAT files
         </Typography>
         <Button
           variant="contained"
-          size="large"
           startIcon={<FolderOpenIcon />}
           onClick={onOpenFile}
           disabled={loading}
