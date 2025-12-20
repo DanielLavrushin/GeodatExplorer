@@ -1,5 +1,8 @@
 # GeodatExplorer
 
+![GitHub Release](https://img.shields.io/github/v/release/daniellavrushin/geodatexplorer)
+![GitHub Downloads](https://img.shields.io/github/downloads/daniellavrushin/geodatexplorer/total)
+
 A cross-platform GUI application for browsing and exploring v2ray geosite and geoip DAT files.
 
 ## Overview
