@@ -2,6 +2,28 @@ name: Build
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g., 1.0.0)"
+        required: true
+        default: "1.0.0"
+      draft:
+        description: "Create as draft release?"
+        required: false
+        default: false
+        type: boolean
+      prerelease:
+        description: "Mark as pre-release?"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+env:
+  VERSION: ${{ inputs.version }}
+  BINARY_NAME: gde
 
 jobs:
   build-linux:
@@ -131,7 +153,6 @@ jobs:
   release:
     needs: [build-linux, build-windows, build-macos]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -151,8 +172,12 @@ jobs:
           done
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.VERSION }}
+          name: v${{ env.VERSION }}
+          draft: ${{ inputs.draft }}
+          prerelease: ${{ inputs.prerelease }}
           files: |
             artifacts/*.tar.gz
             artifacts/*.zip
