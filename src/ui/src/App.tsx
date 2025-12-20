@@ -12,9 +12,11 @@ import {
 } from "@mui/material";
 import PublicIcon from "@mui/icons-material/Public";
 import CloseIcon from "@mui/icons-material/Close";
+import GitHubIcon from "@mui/icons-material/GitHub";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { FileBrowser } from "./components/FileBrowser";
 import { FileState, FileType } from "./types";
+import { BrowserOpenURL } from "./wailsjs/runtime/runtime";
 import {
   OpenFileDialog,
   ListGeoSiteCategories,
@@ -78,15 +80,15 @@ function App() {
       <Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
         <AppBar position="static">
           <Toolbar variant="dense">
-            <PublicIcon sx={{ mr: 2 }} />
-            <Typography variant="h6" sx={{ flexGrow: 1 }}>
-              GeodatExplorer
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", flexGrow: 1 }}>
+              <PublicIcon sx={{ mr: 1, mb: 0.5, fontSize: 30 }} />
+              <Typography variant="h6">GEODAT EXPLORER</Typography>
+            </Box>
             {file && (
-              <>
+              <Box sx={{ display: "flex", alignItems: "center" }}>
                 <Typography
                   variant="body2"
-                  sx={{ mr: 2, color: "text.secondary" }}
+                  sx={{ mr: 1, color: "text.secondary" }}
                 >
                   {fileName}
                 </Typography>
@@ -99,7 +101,7 @@ function App() {
                     <CloseIcon />
                   </IconButton>
                 </Tooltip>
-              </>
+              </Box>
             )}
           </Toolbar>
         </AppBar>
@@ -109,6 +111,41 @@ function App() {
         ) : (
           <WelcomeScreen onOpenFile={handleOpenFile} loading={loading} />
         )}
+        <Box
+          component="footer"
+          sx={{
+            py: 1,
+            px: 2,
+            borderTop: 1,
+            borderColor: "divider",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 0.5,
+            cursor: "pointer",
+          }}
+        >
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ lineHeight: 2 }}
+          >
+            Developed by Daniel Lavrushin
+          </Typography>
+          <GitHubIcon
+            sx={{
+              mb: 0.5,
+              fontSize: 14,
+              color: "text.secondary",
+              cursor: "pointer",
+            }}
+            onClick={() =>
+              BrowserOpenURL(
+                "https://github.com/daniellavrushin/geodatexplorer"
+              )
+            }
+          />
+        </Box>
       </Box>
     </ThemeProvider>
   );
