@@ -5,6 +5,8 @@
 
 A cross-platform GUI application for browsing and exploring v2ray geosite and geoip DAT files.
 
+<img width="990" height="598" alt="image" src="https://github.com/user-attachments/assets/c97aa1e8-85ad-4a17-a639-e3d53d34a2f4" />
+
 ## Overview
 
 GeodatExplorer provides a user-friendly interface to inspect the contents of [v2ray/xray geodata files](https://github.com/v2fly/domain-list-community) (`geosite.dat` and `geoip.dat`). These files contain domain and IP routing rules used by proxy tools like v2ray, xray, sing-box, and others.
