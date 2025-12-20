@@ -120,7 +120,7 @@ jobs:
       - name: Package
         run: |
           mkdir -p out/darwin-${{ matrix.arch }}
-          mv src/build/bin/gde.app out/darwin-${{ matrix.arch }}/
+          mv src/build/bin/geodatexplorer.app out/darwin-${{ matrix.arch }}/gde.app
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
