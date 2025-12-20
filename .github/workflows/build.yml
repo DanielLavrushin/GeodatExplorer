@@ -1,32 +1,23 @@
 name: Build
 
 on:
-  push:
-    branches: [main]
-    tags:
-      - "v*"
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25.5"
+          go-version: "1.23"
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Install pnpm
         run: npm install -g pnpm
@@ -39,30 +30,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
 
-      - name: Install ARM64 cross-compiler
-        if: matrix.arch == 'arm64'
-        run: |
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-
       - name: Build
         working-directory: src
-        env:
-          CGO_ENABLED: 1
-          CC: ${{ matrix.arch == 'arm64' && 'aarch64-linux-gnu-gcc' || 'gcc' }}
-          CXX: ${{ matrix.arch == 'arm64' && 'aarch64-linux-gnu-g++' || 'g++' }}
-        run: |
-          wails build -tags webkit2_41 -platform linux/${{ matrix.arch }} -o gde
+        run: wails build -tags webkit2_41 -platform linux/amd64 -o gde
 
       - name: Package
         run: |
-          mkdir -p out/linux-${{ matrix.arch }}
-          mv src/build/bin/gde out/linux-${{ matrix.arch }}/
+          mkdir -p out/linux-amd64
+          mv src/build/bin/gde out/linux-amd64/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gde-linux-${{ matrix.arch }}
-          path: out/linux-${{ matrix.arch }}
+          name: gde-linux-amd64
+          path: out/linux-amd64
 
   build-windows:
     runs-on: windows-latest
@@ -72,7 +53,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -112,7 +93,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25.5"
+          go-version: "1.23"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -132,7 +113,7 @@ jobs:
       - name: Package
         run: |
           mkdir -p out/darwin-${{ matrix.arch }}
-          mv src/build/bin/gde out/darwin-${{ matrix.arch }}/
+          mv src/build/bin/gde.app out/darwin-${{ matrix.arch }}/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
