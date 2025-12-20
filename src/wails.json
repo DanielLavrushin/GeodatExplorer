@@ -6,7 +6,7 @@
     "frontend:dev:watcher": "pnpm run dev",
     "frontend:dev:serverUrl": "auto",
     "frontend:dir": "./ui",
-    "wailsjsdir": "./ui/src/wailsjs",
+    "wailsjsdir": "./ui/src",
     "author": {
         "name": "Daniel Lavrushin"
     }

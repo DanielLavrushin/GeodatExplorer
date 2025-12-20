@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"io"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/daniellavrushin/geodatexplorer/log"
@@ -132,4 +133,51 @@ func convertV2DomainToText(dom []*v2data.Domain, w io.Writer) error {
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
+}
+
+func ListGeoSiteCategories(path string) ([]string, error) {
+	if path == "" {
+		return nil, nil
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	geoSiteList, err := v2data.LoadGeoSiteList(data)
+	if err != nil {
+		return nil, err
+	}
+
+	categories := make([]string, 0, len(geoSiteList.GetEntry()))
+	for _, gs := range geoSiteList.GetEntry() {
+		categories = append(categories, strings.ToLower(gs.GetCountryCode()))
+	}
+	sort.Strings(categories)
+	return categories, nil
+}
+
+// ListGeoIPCategories returns all category names in a geoip file
+func ListGeoIPCategories(path string) ([]string, error) {
+	if path == "" {
+		return nil, nil
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	geoIPList, err := v2data.LoadGeoIPListFromDAT(data)
+	if err != nil {
+		return nil, err
+	}
+
+	categories := make([]string, 0, len(geoIPList.GetEntry()))
+	for _, geo := range geoIPList.GetEntry() {
+		categories = append(categories, strings.ToLower(geo.GetCountryCode()))
+	}
+	sort.Strings(categories)
+	return categories, nil
 }
