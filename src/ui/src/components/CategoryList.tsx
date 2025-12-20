@@ -17,6 +17,7 @@ interface Props {
   selectedCategory: string | null;
   onSelectCategory: (category: string) => void;
   loading: boolean;
+  searchButton?: React.ReactNode;
 }
 
 export function CategoryList({
@@ -26,6 +27,7 @@ export function CategoryList({
   selectedCategory,
   onSelectCategory,
   loading,
+  searchButton,
 }: Props) {
   const filtered = file.categories.filter((c) =>
     c.toLowerCase().includes(filter.toLowerCase())
@@ -51,13 +53,14 @@ export function CategoryList({
         />
       </Box>
       <Box sx={{ px: 1, pb: 1 }}>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} alignItems="center">
           <Chip label={file.type} size="small" color="primary" />
           <Chip
             label={`${file.categories.length} categories`}
             size="small"
             variant="outlined"
           />
+          <Box sx={{ ml: "auto" }}>{searchButton}</Box>
         </Stack>
       </Box>
       <List sx={{ flex: 1, overflow: "auto" }} dense>

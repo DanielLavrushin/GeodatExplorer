@@ -158,7 +158,6 @@ func ListGeoSiteCategories(path string) ([]string, error) {
 	return categories, nil
 }
 
-// ListGeoIPCategories returns all category names in a geoip file
 func ListGeoIPCategories(path string) ([]string, error) {
 	if path == "" {
 		return nil, nil

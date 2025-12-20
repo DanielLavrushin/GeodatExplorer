@@ -1,8 +1,11 @@
 import { useState, useRef } from "react";
-import { Box } from "@mui/material";
+import { Box, IconButton, Tooltip } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
 import { CategoryList } from "./CategoryList";
 import { EntryList } from "./EntryList";
-import { FileState, geodat } from "../types/index";
+import { GlobalSearch } from "./GlobalSearch";
+import { FileState } from "../types/index";
+import { geodat } from "../wailsjs/go/models";
 import { LoadDomains, LoadIPs } from "../wailsjs/go/main/App";
 
 interface Props {
@@ -16,6 +19,7 @@ export function FileBrowser({ file }: Props) {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [entryFilter, setEntryFilter] = useState("");
   const [loading, setLoading] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const handleSelectCategory = async (category: string) => {
     const requestId = ++requestIdRef.current;
@@ -56,6 +60,13 @@ export function FileBrowser({ file }: Props) {
         selectedCategory={selectedCategory}
         onSelectCategory={handleSelectCategory}
         loading={loading}
+        searchButton={
+          <Tooltip title="Global search (find which category contains...)">
+            <IconButton size="small" onClick={() => setSearchOpen(true)}>
+              <SearchIcon />
+            </IconButton>
+          </Tooltip>
+        }
       />
       <EntryList
         category={selectedCategory}
@@ -63,6 +74,13 @@ export function FileBrowser({ file }: Props) {
         filter={entryFilter}
         onFilterChange={setEntryFilter}
         loading={loading && !!selectedCategory}
+      />
+      <GlobalSearch
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        filePath={file.path}
+        fileType={file.type}
+        onSelectCategory={handleSelectCategory}
       />
     </Box>
   );
