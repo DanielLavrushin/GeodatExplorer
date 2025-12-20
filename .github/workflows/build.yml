@@ -66,6 +66,7 @@ jobs:
       - name: Package
         run: |
           mkdir -p out/linux-${{ matrix.arch }}
+          chmod +x src/build/bin/gde
           mv src/build/bin/gde out/linux-${{ matrix.arch }}/
 
       - name: Upload artifact
@@ -142,6 +143,7 @@ jobs:
       - name: Package
         run: |
           mkdir -p out/darwin-${{ matrix.arch }}
+          chmod +x src/build/bin/geodatexplorer.app/Contents/MacOS/geodatexplorer
           mv src/build/bin/geodatexplorer.app out/darwin-${{ matrix.arch }}/gde.app
 
       - name: Upload artifact
