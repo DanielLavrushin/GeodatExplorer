@@ -3,12 +3,12 @@ package geodat
 import (
 	"bufio"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 	"sort"
 	"strings"
 
-	"github.com/daniellavrushin/geodatexplorer/log"
 	"github.com/urlesistiana/v2dat/v2data"
 	"google.golang.org/protobuf/proto"
 )
@@ -38,7 +38,7 @@ func UnpackGeoSite(args *UnpackArgs) error {
 	}
 	for tag, domains := range entries {
 		if err := save(tag, domains); err != nil {
-			return log.Errorf("failed to save %s: %w", tag, err)
+			return fmt.Errorf("failed to save %s: %w", tag, err)
 		}
 	}
 	return nil
@@ -46,16 +46,16 @@ func UnpackGeoSite(args *UnpackArgs) error {
 
 func readCountryCode(msg []byte) (string, error) {
 	if len(msg) == 0 || msg[0] != 0x0A {
-		return "", log.Errorf("bad key")
+		return "", fmt.Errorf("bad key")
 	}
 	l, n := binary.Uvarint(msg[1:])
 	if n <= 0 {
-		return "", log.Errorf("bad varint")
+		return "", fmt.Errorf("bad varint")
 	}
 	start := 1 + n
 	end := start + int(l)
 	if end > len(msg) {
-		return "", log.Errorf("string truncated")
+		return "", fmt.Errorf("country code exceeds message length")
 	}
 	return strings.ToLower(string(msg[start:end])), nil
 }
@@ -82,7 +82,7 @@ func streamGeoSite(file string, filters []string, save func(string, []*v2data.Do
 			return err
 		}
 		if tagByte != 0x0A {
-			return log.Errorf("unexpected wire tag %02X", tagByte)
+			return fmt.Errorf("unexpected wire tag %02X", tagByte)
 		}
 		length, err := binary.ReadUvarint(r)
 		if err != nil {
