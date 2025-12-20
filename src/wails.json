@@ -1,0 +1,13 @@
+{
+    "name": "geodatexplorer",
+    "outputfilename": "geodatexplorer",
+    "frontend:install": "pnpm install",
+    "frontend:build": "pnpm run build",
+    "frontend:dev:watcher": "pnpm run dev",
+    "frontend:dev:serverUrl": "auto",
+    "frontend:dir": "./ui",
+    "wailsjsdir": "./ui/src/wailsjs",
+    "author": {
+        "name": "Daniel Lavrushin"
+    }
+}

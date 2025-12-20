@@ -1,30 +1,32 @@
 package main
 
 import (
-	"fmt"
-	"os"
+	"embed"
 
-	"github.com/spf13/cobra"
+	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/options"
+	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "geodatexplorer",
-	Short: "GeodatExplorer - A simple GUI Geo DAT files explorer",
-	Long:  `GeodatExplorer is a simple GUI application for exploring Geo DAT files.`,
-	RunE:  runGeodatExplorer,
-}
+//go:embed all:ui/dist
+var assets embed.FS
 
 func main() {
+	app := NewApp()
 
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+	err := wails.Run(&options.App{
+		Title:  "GeodatExplorer",
+		Width:  1024,
+		Height: 768,
+		AssetServer: &assetserver.Options{
+			Assets: assets,
+		},
+		OnStartup: app.startup,
+		Bind: []interface{}{
+			app,
+		},
+	})
+	if err != nil {
+		panic(err)
 	}
-
-}
-
-func runGeodatExplorer(cmd *cobra.Command, args []string) error {
-	fmt.Println("GeodatExplorer is starting...")
-	// Here would be the code to initialize and run the GUI application.
-	return nil
 }
