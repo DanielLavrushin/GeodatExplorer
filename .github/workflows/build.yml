@@ -161,6 +161,12 @@ jobs:
         with:
           path: artifacts
 
+      - name: Restore executable permissions
+        run: |
+          cd artifacts
+          chmod +x gde-linux-*/gde
+          chmod +x gde-darwin-*/gde.app/Contents/MacOS/geodatexplorer
+
       - name: Create archives
         run: |
           cd artifacts
