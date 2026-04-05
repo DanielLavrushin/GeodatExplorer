@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net/netip"
 	"os"
 	"sort"
 	"strings"
@@ -133,6 +134,60 @@ func convertV2DomainToText(dom []*v2data.Domain, w io.Writer) error {
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
+}
+
+func DetectFileType(path string) string {
+	if path == "" {
+		return ""
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+
+	geoipScore := 0
+	geositeScore := 0
+
+	if giList, err := v2data.LoadGeoIPListFromDAT(data); err == nil {
+		for _, entry := range giList.GetEntry() {
+			cc := entry.GetCountryCode()
+			if len(cc) >= 2 && len(entry.GetCidr()) > 0 {
+				first := entry.GetCidr()[0]
+				if _, ok := netip.AddrFromSlice(first.Ip); ok && first.Prefix <= 128 {
+					geoipScore++
+				}
+			}
+		}
+	}
+
+	if gsList, err := v2data.LoadGeoSiteList(data); err == nil {
+		for _, entry := range gsList.GetEntry() {
+			cc := entry.GetCountryCode()
+			if len(cc) >= 2 && len(entry.GetDomain()) > 0 {
+				first := entry.GetDomain()[0]
+				if len(first.Value) > 0 && isPrintableASCII(first.Value) {
+					geositeScore++
+				}
+			}
+		}
+	}
+
+	if geoipScore > geositeScore {
+		return "geoip"
+	}
+	if geositeScore > 0 {
+		return "geosite"
+	}
+	return ""
+}
+
+func isPrintableASCII(s string) bool {
+	for _, r := range s {
+		if r < 0x20 || r > 0x7e {
+			return false
+		}
+	}
+	return true
 }
 
 func ListGeoSiteCategories(path string) ([]string, error) {

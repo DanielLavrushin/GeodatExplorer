@@ -99,7 +99,7 @@ export function GlobalSearch({
           placeholder={
             fileType === "geosite"
               ? "Search domains (e.g. google.com)"
-              : "Search IPs (e.g. 8.8.8)"
+              : "Search by IP or CIDR (e.g. 8.8.8.8 or 10.0.0.0/8)"
           }
           value={query}
           onChange={(e) => setQuery(e.target.value)}

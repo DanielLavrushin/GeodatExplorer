@@ -19,6 +19,10 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
+func (a *App) DetectFileType(path string) string {
+	return geodat.DetectFileType(path)
+}
+
 // OpenFileDialog opens a file picker
 func (a *App) OpenFileDialog(title string) (string, error) {
 	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{

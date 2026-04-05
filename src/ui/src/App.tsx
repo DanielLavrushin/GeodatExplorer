@@ -19,6 +19,7 @@ import { FileState, FileType } from "./types";
 import { BrowserOpenURL } from "./wailsjs/runtime/runtime";
 import {
   OpenFileDialog,
+  DetectFileType,
   ListGeoSiteCategories,
   ListGeoIPCategories,
 } from "./wailsjs/go/main/App";
@@ -33,13 +34,6 @@ function App() {
   const [file, setFile] = useState<FileState | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const detectFileType = (path: string): FileType => {
-    const lower = path.toLowerCase();
-    if (lower.includes("geosite")) return "geosite";
-    if (lower.includes("geoip")) return "geoip";
-    return null;
-  };
-
   const handleOpenFile = async () => {
     try {
       const path = await OpenFileDialog("Select GeoDAT file");
@@ -47,7 +41,7 @@ function App() {
 
       setLoading(true);
 
-      const type = detectFileType(path);
+      const type = ((await DetectFileType(path)) || null) as FileType;
       let categories: string[] = [];
 
       if (type === "geosite") {

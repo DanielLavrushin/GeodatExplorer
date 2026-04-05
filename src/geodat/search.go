@@ -72,7 +72,7 @@ func SearchGeoIP(geodataPath string, query string) ([]SearchResult, error) {
 		return nil, nil
 	}
 
-	query = strings.ToLower(query)
+	query = strings.TrimSpace(query)
 	data, err := os.ReadFile(geodataPath)
 	if err != nil {
 		return nil, err
@@ -81,6 +81,21 @@ func SearchGeoIP(geodataPath string, query string) ([]SearchResult, error) {
 	geoIPList, err := v2data.LoadGeoIPListFromDAT(data)
 	if err != nil {
 		return nil, err
+	}
+
+	// Try to parse query as IP or CIDR for containment search
+	queryAddr, addrErr := netip.ParseAddr(query)
+	queryPrefix, prefixErr := netip.ParsePrefix(query)
+
+	useContainment := addrErr == nil || prefixErr == nil
+
+	// If query is a plain IP, treat it as a /32 or /128 prefix
+	if addrErr == nil && prefixErr != nil {
+		bits := 32
+		if queryAddr.Is6() {
+			bits = 128
+		}
+		queryPrefix = netip.PrefixFrom(queryAddr, bits)
 	}
 
 	var results []SearchResult
@@ -98,12 +113,25 @@ func SearchGeoIP(geodataPath string, query string) ([]SearchResult, error) {
 			if err != nil {
 				continue
 			}
-			value := prefix.String()
-			if strings.Contains(strings.ToLower(value), query) {
-				matches = append(matches, Entry{
-					Type:  "cidr",
-					Value: value,
-				})
+
+			if useContainment {
+				// Check if the entry's CIDR contains the query IP/prefix
+				// or if the query prefix contains the entry's CIDR
+				if prefixContains(prefix, queryPrefix) || prefixContains(queryPrefix, prefix) {
+					matches = append(matches, Entry{
+						Type:  "cidr",
+						Value: prefix.String(),
+					})
+				}
+			} else {
+				// Fall back to substring match for partial queries
+				value := prefix.String()
+				if strings.Contains(strings.ToLower(value), strings.ToLower(query)) {
+					matches = append(matches, Entry{
+						Type:  "cidr",
+						Value: value,
+					})
+				}
 			}
 		}
 
@@ -121,4 +149,9 @@ func SearchGeoIP(geodataPath string, query string) ([]SearchResult, error) {
 	}
 
 	return results, nil
+}
+
+// prefixContains reports whether outer fully contains inner.
+func prefixContains(outer, inner netip.Prefix) bool {
+	return outer.Contains(inner.Addr()) && outer.Bits() <= inner.Bits()
 }
