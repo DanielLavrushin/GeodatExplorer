@@ -75,7 +75,7 @@ export function EntryList({
   const filtered = useMemo(() => {
     setVisibleCount(CHUNK_SIZE);
     return entries.filter((e) =>
-      e.value.toLowerCase().includes(filter.toLowerCase())
+      e.value.toLowerCase().includes(filter.toLowerCase()),
     );
   }, [entries, filter]);
 

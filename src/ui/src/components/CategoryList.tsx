@@ -30,7 +30,7 @@ export function CategoryList({
   searchButton,
 }: Props) {
   const filtered = file.categories.filter((c) =>
-    c.toLowerCase().includes(filter.toLowerCase())
+    c.toLowerCase().includes(filter.toLowerCase()),
   );
 
   return (
@@ -75,7 +75,14 @@ export function CategoryList({
               selected={selectedCategory === cat}
               onClick={() => onSelectCategory(cat)}
             >
-              <ListItemText primary={cat} />
+              <ListItemText
+                primary={
+                  cat.length === 2
+                    ? `${String.fromCodePoint(...[...cat.toUpperCase()].map((c) => 0x1f1e6 + (c.codePointAt(0) ?? 65) - 65))} ${cat.toUpperCase()}`
+                    : `🏷️ ${cat}`
+                }
+                slotProps={{ primary: { sx: { fontFamily: "monospace" } } }}
+              />
             </ListItemButton>
           ))
         )}
