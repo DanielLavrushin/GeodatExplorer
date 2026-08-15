@@ -8,6 +8,8 @@ import {
   Stack,
   TextField,
   Button,
+  InputAdornment,
+  Tooltip,
 } from "@mui/material";
 import LanguageIcon from "@mui/icons-material/Language";
 import GpsFixedIcon from "@mui/icons-material/GpsFixed";
@@ -16,12 +18,17 @@ import CodeIcon from "@mui/icons-material/Code";
 import HubIcon from "@mui/icons-material/Hub";
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import { geodat } from "../wailsjs/go/models";
+import { buildMatcher, SearchOptions } from "../lib/matcher";
+import { useDebounced } from "../lib/useDebounced";
+import { SearchOptionsToggle } from "./SearchOptionsToggle";
 
 interface Props {
   category: string | null;
   entries: geodat.Entry[];
   filter: string;
   onFilterChange: (value: string) => void;
+  searchOptions: SearchOptions;
+  onSearchOptionsChange: (options: SearchOptions) => void;
   loading: boolean;
 }
 
@@ -68,16 +75,25 @@ export function EntryList({
   entries,
   filter,
   onFilterChange,
+  searchOptions,
+  onSearchOptionsChange,
   loading,
 }: Props) {
   const [visibleCount, setVisibleCount] = useState(CHUNK_SIZE);
 
+  // A category can hold tens of thousands of entries, so wait for a pause in
+  // typing before re-scanning them all.
+  const debouncedFilter = useDebounced(filter, 150);
+
+  const { match, error: filterError } = useMemo(
+    () => buildMatcher(debouncedFilter, searchOptions),
+    [debouncedFilter, searchOptions],
+  );
+
   const filtered = useMemo(() => {
     setVisibleCount(CHUNK_SIZE);
-    return entries.filter((e) =>
-      e.value.toLowerCase().includes(filter.toLowerCase()),
-    );
-  }, [entries, filter]);
+    return entries.filter((e) => match(e.value));
+  }, [entries, match]);
 
   const visible = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
@@ -102,13 +118,32 @@ export function EntryList({
               size="small"
               variant="outlined"
             />
-            <TextField
-              size="small"
-              placeholder="Filter entries..."
-              value={filter}
-              onChange={(e) => onFilterChange(e.target.value)}
-              sx={{ ml: "auto", width: 200 }}
-            />
+            <Tooltip title={filterError ?? ""} placement="bottom-end">
+              <TextField
+                size="small"
+                placeholder={
+                  searchOptions.regex
+                    ? "Filter by regex..."
+                    : "Filter entries..."
+                }
+                value={filter}
+                error={!!filterError}
+                onChange={(e) => onFilterChange(e.target.value)}
+                sx={{ ml: "auto", width: 280 }}
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <SearchOptionsToggle
+                          value={searchOptions}
+                          onChange={onSearchOptionsChange}
+                        />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+            </Tooltip>
           </Stack>
         </Box>
       )}

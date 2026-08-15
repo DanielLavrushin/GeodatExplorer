@@ -65,10 +65,10 @@ func (a *App) LoadIPs(path string, categories []string) ([]geodat.Entry, error) 
 	return cats, nil
 }
 
-func (a *App) SearchGeoSite(path string, query string) ([]geodat.SearchResult, error) {
-	return geodat.SearchGeoSite(path, query)
+func (a *App) SearchGeoSite(path string, query string, opts geodat.SearchOptions) ([]geodat.SearchResult, error) {
+	return geodat.SearchGeoSite(path, query, opts)
 }
 
-func (a *App) SearchGeoIP(path string, query string) ([]geodat.SearchResult, error) {
-	return geodat.SearchGeoIP(path, query)
+func (a *App) SearchGeoIP(path string, query string, opts geodat.SearchOptions) ([]geodat.SearchResult, error) {
+	return geodat.SearchGeoIP(path, query, opts)
 }

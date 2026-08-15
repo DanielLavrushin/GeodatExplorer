@@ -15,3 +15,12 @@ type SearchResult struct {
 	Matches  []Entry `json:"matches"`
 	Total    int     `json:"total"`
 }
+
+// SearchOptions controls how a search query is interpreted.
+type SearchOptions struct {
+	// Regex treats the query as an RE2 regular expression instead of a plain
+	// substring.
+	Regex bool `json:"regex"`
+	// CaseSensitive disables the default case-insensitive matching.
+	CaseSensitive bool `json:"caseSensitive"`
+}

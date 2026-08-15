@@ -1,19 +1,82 @@
 package geodat
 
 import (
+	"fmt"
 	"net/netip"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/urlesistiana/v2dat/v2data"
 )
 
-func SearchGeoSite(geodataPath string, query string) ([]SearchResult, error) {
+// matcher tests candidate strings against a query, either as a substring or as
+// a compiled regular expression.
+type matcher struct {
+	re     *regexp.Regexp
+	needle string
+	fold   bool
+}
+
+// newMatcher compiles query according to opts. It returns an error only when
+// opts.Regex is set and query is not a valid RE2 expression.
+func newMatcher(query string, opts SearchOptions) (*matcher, error) {
+	if opts.Regex {
+		expr := query
+		if !opts.CaseSensitive {
+			// (?i) applies to the remainder of the pattern, including across
+			// top-level alternations.
+			expr = "(?i)" + expr
+		}
+		re, err := regexp.Compile(expr)
+		if err != nil {
+			// The wrapped error already quotes the offending pattern.
+			return nil, fmt.Errorf("invalid regular expression: %w", err)
+		}
+		return &matcher{re: re}, nil
+	}
+
+	if opts.CaseSensitive {
+		return &matcher{needle: query}, nil
+	}
+	return &matcher{needle: strings.ToLower(query), fold: true}, nil
+}
+
+func (m *matcher) matches(s string) bool {
+	if m.re != nil {
+		return m.re.MatchString(s)
+	}
+	if m.fold {
+		return strings.Contains(strings.ToLower(s), m.needle)
+	}
+	return strings.Contains(s, m.needle)
+}
+
+func domainTypeName(t v2data.Domain_Type) string {
+	switch t {
+	case v2data.Domain_Plain:
+		return "keyword"
+	case v2data.Domain_Regex:
+		return "regexp"
+	case v2data.Domain_Full:
+		return "full"
+	case v2data.Domain_Domain:
+		return "domain"
+	default:
+		return "domain"
+	}
+}
+
+func SearchGeoSite(geodataPath string, query string, opts SearchOptions) ([]SearchResult, error) {
 	if geodataPath == "" || query == "" {
 		return nil, nil
 	}
 
-	query = strings.ToLower(query)
+	m, err := newMatcher(query, opts)
+	if err != nil {
+		return nil, err
+	}
+
 	data, err := os.ReadFile(geodataPath)
 	if err != nil {
 		return nil, err
@@ -31,23 +94,13 @@ func SearchGeoSite(geodataPath string, query string) ([]SearchResult, error) {
 		var matches []Entry
 
 		for _, d := range gs.GetDomain() {
-			value := strings.ToLower(d.Value)
-			if strings.Contains(value, query) {
-				entry := Entry{Value: d.Value}
-				switch d.Type {
-				case v2data.Domain_Plain:
-					entry.Type = "keyword"
-				case v2data.Domain_Regex:
-					entry.Type = "regexp"
-				case v2data.Domain_Full:
-					entry.Type = "full"
-				case v2data.Domain_Domain:
-					entry.Type = "domain"
-				default:
-					entry.Type = "domain"
-				}
-				matches = append(matches, entry)
+			if !m.matches(d.Value) {
+				continue
 			}
+			matches = append(matches, Entry{
+				Type:  domainTypeName(d.Type),
+				Value: d.Value,
+			})
 		}
 
 		if len(matches) > 0 {
@@ -67,12 +120,22 @@ func SearchGeoSite(geodataPath string, query string) ([]SearchResult, error) {
 	return results, nil
 }
 
-func SearchGeoIP(geodataPath string, query string) ([]SearchResult, error) {
+func SearchGeoIP(geodataPath string, query string, opts SearchOptions) ([]SearchResult, error) {
 	if geodataPath == "" || query == "" {
 		return nil, nil
 	}
 
-	query = strings.TrimSpace(query)
+	// Trimming makes IP/CIDR parsing forgiving, but it would silently alter a
+	// regular expression, so leave regex queries untouched.
+	if !opts.Regex {
+		query = strings.TrimSpace(query)
+	}
+
+	m, err := newMatcher(query, opts)
+	if err != nil {
+		return nil, err
+	}
+
 	data, err := os.ReadFile(geodataPath)
 	if err != nil {
 		return nil, err
@@ -83,19 +146,26 @@ func SearchGeoIP(geodataPath string, query string) ([]SearchResult, error) {
 		return nil, err
 	}
 
-	// Try to parse query as IP or CIDR for containment search
-	queryAddr, addrErr := netip.ParseAddr(query)
-	queryPrefix, prefixErr := netip.ParsePrefix(query)
-
-	useContainment := addrErr == nil || prefixErr == nil
-
-	// If query is a plain IP, treat it as a /32 or /128 prefix
-	if addrErr == nil && prefixErr != nil {
-		bits := 32
-		if queryAddr.Is6() {
-			bits = 128
+	// Containment search only makes sense for a literal IP/CIDR query. In regex
+	// mode the pattern is matched against the textual CIDR instead.
+	var queryPrefix netip.Prefix
+	useContainment := false
+	if !opts.Regex {
+		queryAddr, addrErr := netip.ParseAddr(query)
+		parsedPrefix, prefixErr := netip.ParsePrefix(query)
+		switch {
+		case addrErr == nil:
+			// A plain IP is treated as a /32 or /128 prefix.
+			bits := 32
+			if queryAddr.Is6() {
+				bits = 128
+			}
+			queryPrefix = netip.PrefixFrom(queryAddr, bits)
+			useContainment = true
+		case prefixErr == nil:
+			queryPrefix = parsedPrefix
+			useContainment = true
 		}
-		queryPrefix = netip.PrefixFrom(queryAddr, bits)
 	}
 
 	var results []SearchResult
@@ -123,15 +193,16 @@ func SearchGeoIP(geodataPath string, query string) ([]SearchResult, error) {
 						Value: prefix.String(),
 					})
 				}
-			} else {
-				// Fall back to substring match for partial queries
-				value := prefix.String()
-				if strings.Contains(strings.ToLower(value), strings.ToLower(query)) {
-					matches = append(matches, Entry{
-						Type:  "cidr",
-						Value: value,
-					})
-				}
+				continue
+			}
+
+			// Fall back to substring/regex match on the textual CIDR
+			value := prefix.String()
+			if m.matches(value) {
+				matches = append(matches, Entry{
+					Type:  "cidr",
+					Value: value,
+				})
 			}
 		}
 

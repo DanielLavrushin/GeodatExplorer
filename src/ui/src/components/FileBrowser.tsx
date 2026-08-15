@@ -7,6 +7,7 @@ import { GlobalSearch } from "./GlobalSearch";
 import { FileState } from "../types/index";
 import { geodat } from "../wailsjs/go/models";
 import { LoadDomains, LoadIPs } from "../wailsjs/go/main/App";
+import { DEFAULT_SEARCH_OPTIONS, SearchOptions } from "../lib/matcher";
 
 interface Props {
   file: FileState;
@@ -18,6 +19,13 @@ export function FileBrowser({ file }: Props) {
   const [entries, setEntries] = useState<geodat.Entry[]>([]);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [entryFilter, setEntryFilter] = useState("");
+  // Modifiers are deliberately not reset when the category changes — they are a
+  // standing preference, unlike the filter text.
+  const [categorySearchOptions, setCategorySearchOptions] =
+    useState<SearchOptions>(DEFAULT_SEARCH_OPTIONS);
+  const [entrySearchOptions, setEntrySearchOptions] = useState<SearchOptions>(
+    DEFAULT_SEARCH_OPTIONS,
+  );
   const [loading, setLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -57,6 +65,8 @@ export function FileBrowser({ file }: Props) {
         file={file}
         filter={categoryFilter}
         onFilterChange={setCategoryFilter}
+        searchOptions={categorySearchOptions}
+        onSearchOptionsChange={setCategorySearchOptions}
         selectedCategory={selectedCategory}
         onSelectCategory={handleSelectCategory}
         loading={loading}
@@ -73,6 +83,8 @@ export function FileBrowser({ file }: Props) {
         entries={entries}
         filter={entryFilter}
         onFilterChange={setEntryFilter}
+        searchOptions={entrySearchOptions}
+        onSearchOptionsChange={setEntrySearchOptions}
         loading={loading && !!selectedCategory}
       />
       <GlobalSearch

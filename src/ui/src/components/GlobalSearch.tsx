@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -13,12 +13,15 @@ import {
   InputAdornment,
   IconButton,
   Divider,
+  Alert,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import CloseIcon from "@mui/icons-material/Close";
 import { geodat } from "../wailsjs/go/models";
 import { SearchGeoSite, SearchGeoIP } from "../wailsjs/go/main/App";
 import { FileType } from "../types";
+import { DEFAULT_SEARCH_OPTIONS, SearchOptions } from "../lib/matcher";
+import { SearchOptionsToggle } from "./SearchOptionsToggle";
 
 interface Props {
   open: boolean;
@@ -28,6 +31,23 @@ interface Props {
   onSelectCategory: (category: string) => void;
 }
 
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  return "Search failed";
+}
+
+function placeholderFor(fileType: FileType, options: SearchOptions): string {
+  if (fileType === "geosite") {
+    return options.regex
+      ? String.raw`Regex over domains (e.g. ^ads?\..*\.com$)`
+      : "Search domains (e.g. google.com)";
+  }
+  return options.regex
+    ? String.raw`Regex over CIDRs (e.g. ^10\.)`
+    : "Search by IP or CIDR (e.g. 8.8.8.8 or 10.0.0.0/8)";
+}
+
 export function GlobalSearch({
   open,
   onClose,
@@ -35,30 +55,50 @@ export function GlobalSearch({
   fileType,
   onSelectCategory,
 }: Props) {
+  const requestIdRef = useRef(0);
   const [query, setQuery] = useState("");
+  const [options, setOptions] = useState<SearchOptions>(DEFAULT_SEARCH_OPTIONS);
   const [results, setResults] = useState<geodat.SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSearch = async () => {
-    if (!query.trim() || !filePath) return;
+  const runSearch = async (q: string, opts: SearchOptions) => {
+    if (!q.trim() || !filePath) return;
 
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setSearched(true);
+    setError(null);
 
     try {
       let data: geodat.SearchResult[] = [];
       if (fileType === "geosite") {
-        data = await SearchGeoSite(filePath, query);
+        data = await SearchGeoSite(filePath, q, opts);
       } else if (fileType === "geoip") {
-        data = await SearchGeoIP(filePath, query);
+        data = await SearchGeoIP(filePath, q, opts);
       }
+      // A toggle can start a second search before the first returns.
+      if (requestId !== requestIdRef.current) return;
       setResults(data || []);
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       console.error(err);
+      setResults([]);
+      setError(errorMessage(err));
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
+  };
+
+  const handleSearch = () => void runSearch(query, options);
+
+  const handleOptionsChange = (next: SearchOptions) => {
+    setOptions(next);
+    // Keep an existing result set in sync with the modifiers.
+    if (searched && query.trim()) void runSearch(query, next);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -73,9 +113,11 @@ export function GlobalSearch({
   };
 
   const handleClose = () => {
+    requestIdRef.current++;
     setQuery("");
     setResults([]);
     setSearched(false);
+    setError(null);
     onClose();
   };
 
@@ -96,25 +138,39 @@ export function GlobalSearch({
         <TextField
           autoFocus
           fullWidth
-          placeholder={
-            fileType === "geosite"
-              ? "Search domains (e.g. google.com)"
-              : "Search by IP or CIDR (e.g. 8.8.8.8 or 10.0.0.0/8)"
-          }
+          placeholder={placeholderFor(fileType, options)}
           value={query}
+          error={!!error}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          sx={{ mb: 2 }}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton onClick={handleSearch} disabled={loading}>
-                  <SearchIcon />
-                </IconButton>
-              </InputAdornment>
-            ),
+          helperText={
+            options.regex && fileType === "geoip"
+              ? "Regex matches the CIDR text; IP containment is disabled."
+              : undefined
+          }
+          slotProps={{
+            input: {
+              endAdornment: (
+                <InputAdornment position="end">
+                  <SearchOptionsToggle
+                    value={options}
+                    onChange={handleOptionsChange}
+                  />
+                  <IconButton onClick={handleSearch} disabled={loading}>
+                    <SearchIcon />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            },
           }}
+          sx={{ mb: 2 }}
         />
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
         {loading && (
           <Box sx={{ textAlign: "center", py: 4 }}>
@@ -140,7 +196,7 @@ export function GlobalSearch({
           </Box>
         )}
 
-        {!loading && searched && results.length === 0 && (
+        {!loading && !error && searched && results.length === 0 && (
           <Box sx={{ textAlign: "center", py: 4 }}>
             <Typography color="text.secondary">
               No matches found for "{query}"
