@@ -7,6 +7,21 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+// Preferred window size, in logical pixels. The window shrinks to fit when the
+// screen cannot accommodate it, see fitWindowToScreen.
+const (
+	defaultWidth  = 1024
+	defaultHeight = 768
+)
+
+// Fraction of the screen the window may occupy on startup. The height leaves
+// room for a taskbar plus the window title bar; Wails does not expose the
+// taskbar-excluded work area, so we approximate it.
+const (
+	maxScreenWidthRatio  = 0.9
+	maxScreenHeightRatio = 0.85
+)
+
 type App struct {
 	ctx context.Context
 }
@@ -17,6 +32,41 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	a.fitWindowToScreen()
+}
+
+// fitWindowToScreen shrinks and re-centers the window when the default size does
+// not fit on the current screen. Wails scales the requested size by the monitor
+// DPI, so on a 1920x1080 screen at 150% scaling the default would be created at
+// 1536x1152 physical pixels and hang off the top and bottom of the display.
+func (a *App) fitWindowToScreen() {
+	screens, err := runtime.ScreenGetAll(a.ctx)
+	if err != nil || len(screens) == 0 {
+		return
+	}
+
+	screen := screens[0]
+	for _, s := range screens {
+		if s.IsCurrent {
+			screen = s
+			break
+		}
+	}
+
+	// Size is in logical pixels, the same units WindowSetSize expects.
+	screenWidth, screenHeight := screen.Size.Width, screen.Size.Height
+	if screenWidth <= 0 || screenHeight <= 0 {
+		return
+	}
+
+	width := min(defaultWidth, int(float64(screenWidth)*maxScreenWidthRatio))
+	height := min(defaultHeight, int(float64(screenHeight)*maxScreenHeightRatio))
+	if width == defaultWidth && height == defaultHeight {
+		return
+	}
+
+	runtime.WindowSetSize(a.ctx, width, height)
+	runtime.WindowCenter(a.ctx)
 }
 
 func (a *App) DetectFileType(path string) string {
