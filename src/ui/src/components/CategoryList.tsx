@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useSafeFilter } from "../lib/useSafeFilter";
 import {
   Box,
   List,
@@ -12,7 +13,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import { FileState } from "../types/index";
-import { buildMatcher, SearchOptions } from "../lib/matcher";
+import { SearchOptions } from "../lib/matcher";
 import { SearchOptionsToggle } from "./SearchOptionsToggle";
 
 interface Props {
@@ -38,12 +39,19 @@ export function CategoryList({
   loading,
   searchButton,
 }: Props) {
-  const { match, error: filterError } = useMemo(
-    () => buildMatcher(filter, searchOptions),
-    [filter, searchOptions],
+  const { indices, error: filterError } = useSafeFilter(
+    file.categories,
+    filter,
+    searchOptions,
   );
 
-  const filtered = file.categories.filter(match);
+  const filtered = useMemo(
+    () =>
+      indices
+        ? Array.from(indices, (i) => file.categories[i])
+        : file.categories,
+    [indices, file.categories],
+  );
 
   return (
     <Box

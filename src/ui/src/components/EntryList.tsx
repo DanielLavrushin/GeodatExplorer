@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Box,
   ListItem,
@@ -18,8 +18,9 @@ import CodeIcon from "@mui/icons-material/Code";
 import HubIcon from "@mui/icons-material/Hub";
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import { geodat } from "../wailsjs/go/models";
-import { buildMatcher, SearchOptions } from "../lib/matcher";
+import { SearchOptions } from "../lib/matcher";
 import { useDebounced } from "../lib/useDebounced";
+import { useSafeFilter } from "../lib/useSafeFilter";
 import { SearchOptionsToggle } from "./SearchOptionsToggle";
 
 interface Props {
@@ -85,15 +86,21 @@ export function EntryList({
   // typing before re-scanning them all.
   const debouncedFilter = useDebounced(filter, 150);
 
-  const { match, error: filterError } = useMemo(
-    () => buildMatcher(debouncedFilter, searchOptions),
-    [debouncedFilter, searchOptions],
+  const values = useMemo(() => entries.map((e) => e.value), [entries]);
+  const { indices, error: filterError } = useSafeFilter(
+    values,
+    debouncedFilter,
+    searchOptions,
   );
 
-  const filtered = useMemo(() => {
+  const filtered = useMemo(
+    () => (indices ? Array.from(indices, (i) => entries[i]) : entries),
+    [indices, entries],
+  );
+
+  useEffect(() => {
     setVisibleCount(CHUNK_SIZE);
-    return entries.filter((e) => match(e.value));
-  }, [entries, match]);
+  }, [filtered]);
 
   const visible = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
