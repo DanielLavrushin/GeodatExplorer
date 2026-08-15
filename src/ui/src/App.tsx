@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ThemeProvider,
   createTheme,
@@ -22,6 +22,7 @@ import {
   DetectFileType,
   ListGeoSiteCategories,
   ListGeoIPCategories,
+  GetVersion,
 } from "./wailsjs/go/main/App";
 
 const darkTheme = createTheme({
@@ -33,6 +34,13 @@ const darkTheme = createTheme({
 function App() {
   const [file, setFile] = useState<FileState | null>(null);
   const [loading, setLoading] = useState(false);
+  const [version, setVersion] = useState("");
+
+  useEffect(() => {
+    GetVersion()
+      .then(setVersion)
+      .catch(() => setVersion(""));
+  }, []);
 
   const handleOpenFile = async () => {
     try {
@@ -126,6 +134,15 @@ function App() {
           >
             Developed by Daniel Lavrushin
           </Typography>
+          {version && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ lineHeight: 2 }}
+            >
+              &middot; v{version}
+            </Typography>
+          )}
           <GitHubIcon
             sx={{
               mb: 0.5,
