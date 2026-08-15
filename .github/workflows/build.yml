@@ -61,7 +61,7 @@ jobs:
 
       - name: Build
         working-directory: src
-        run: wails build -tags webkit2_41 -platform linux/${{ matrix.arch }} -o gde
+        run: wails build -tags webkit2_41 -platform linux/${{ matrix.arch }} -ldflags "-X main.version=${{ env.VERSION }}" -o gde
 
       - name: Package
         run: |
@@ -98,7 +98,7 @@ jobs:
 
       - name: Build
         working-directory: src
-        run: wails build -platform windows/amd64 -o gde.exe
+        run: wails build -platform windows/amd64 -ldflags "-X main.version=${{ env.VERSION }}" -o gde.exe
 
       - name: Package
         shell: bash
@@ -138,7 +138,7 @@ jobs:
 
       - name: Build
         working-directory: src
-        run: wails build -platform darwin/${{ matrix.arch }} -o gde
+        run: wails build -platform darwin/${{ matrix.arch }} -ldflags "-X main.version=${{ env.VERSION }}" -o gde
 
       - name: Package
         run: |
