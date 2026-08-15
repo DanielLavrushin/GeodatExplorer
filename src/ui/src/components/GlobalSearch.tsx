@@ -56,6 +56,10 @@ export function GlobalSearch({
   onSelectCategory,
 }: Props) {
   const requestIdRef = useRef(0);
+  const inFlightRef = useRef(false);
+  const pendingRef = useRef<{ query: string; options: SearchOptions } | null>(
+    null,
+  );
   const [query, setQuery] = useState("");
   const [options, setOptions] = useState<SearchOptions>(DEFAULT_SEARCH_OPTIONS);
   const [results, setResults] = useState<geodat.SearchResult[]>([]);
@@ -66,10 +70,20 @@ export function GlobalSearch({
   const runSearch = async (q: string, opts: SearchOptions) => {
     if (!q.trim() || !filePath) return;
 
-    const requestId = ++requestIdRef.current;
     setLoading(true);
     setSearched(true);
     setError(null);
+
+    // Every search rereads and unmarshals the whole .dat file, and the backend
+    // call cannot be cancelled, so never let two run at once. Rapid toggling
+    // just overwrites the pending request; only the latest one is run.
+    if (inFlightRef.current) {
+      pendingRef.current = { query: q, options: opts };
+      return;
+    }
+    inFlightRef.current = true;
+
+    const requestId = ++requestIdRef.current;
 
     try {
       let data: geodat.SearchResult[] = [];
@@ -78,7 +92,7 @@ export function GlobalSearch({
       } else if (fileType === "geoip") {
         data = await SearchGeoIP(filePath, q, opts);
       }
-      // A toggle can start a second search before the first returns.
+      // The dialog may have been closed while this was in flight.
       if (requestId !== requestIdRef.current) return;
       setResults(data || []);
     } catch (err) {
@@ -87,7 +101,13 @@ export function GlobalSearch({
       setResults([]);
       setError(errorMessage(err));
     } finally {
-      if (requestId === requestIdRef.current) {
+      inFlightRef.current = false;
+      const next = pendingRef.current;
+      pendingRef.current = null;
+      if (next) {
+        // Keep the spinner up across the handover.
+        void runSearch(next.query, next.options);
+      } else if (requestId === requestIdRef.current) {
         setLoading(false);
       }
     }
@@ -113,9 +133,13 @@ export function GlobalSearch({
   };
 
   const handleClose = () => {
+    // Abandons any in-flight search: its guarded finally block will no longer
+    // match, so loading has to be cleared here too.
     requestIdRef.current++;
+    pendingRef.current = null;
     setQuery("");
     setResults([]);
+    setLoading(false);
     setSearched(false);
     setError(null);
     onClose();
