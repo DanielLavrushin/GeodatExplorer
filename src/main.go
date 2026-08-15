@@ -15,9 +15,11 @@ func main() {
 	app := NewApp()
 
 	err := wails.Run(&options.App{
-		Title:  "GeodatExplorer",
-		Width:  1024,
-		Height: 768,
+		Title:     "GeodatExplorer",
+		Width:     defaultWidth,
+		Height:    defaultHeight,
+		MinWidth:  640,
+		MinHeight: 480,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
