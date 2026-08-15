@@ -1,7 +1,7 @@
 # Makefile for GeodatExplorer
 
 APP_NAME := gde
-VERSION ?= $(shell git describe --tags --abbrev=0 2>/dev/null | sed "s/^v//" || echo dev)
+VERSION ?= $(shell (git describe --tags --abbrev=0 2>/dev/null || echo dev) | sed "s/^v//")
 LDFLAGS := -X main.version=$(VERSION)
 BUILD_DIR := out
 SRC_DIR := src
