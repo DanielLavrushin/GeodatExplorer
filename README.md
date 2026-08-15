@@ -5,7 +5,8 @@
 
 A cross-platform GUI application for browsing and exploring v2ray geosite and geoip DAT files.
 
-<img width="990" height="598" alt="image" src="https://github.com/user-attachments/assets/c97aa1e8-85ad-4a17-a639-e3d53d34a2f4" />
+<img width="1059" height="846" alt="image" src="https://github.com/user-attachments/assets/9733013b-3875-42c9-ae07-84948fa5d950" />
+
 
 ## Overview
 
