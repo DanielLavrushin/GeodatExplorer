@@ -1,2 +1,6 @@
+# onlyBuiltDependencies is the pnpm 10 spelling, allowBuilds the pnpm 11 one.
+# Keep both until CI and local dev are on the same major.
 onlyBuiltDependencies:
   - esbuild
+allowBuilds:
+  esbuild: true
