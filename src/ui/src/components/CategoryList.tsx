@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import { useSafeFilter } from "../lib/useSafeFilter";
 import {
   Box,
   List,
@@ -7,13 +9,19 @@ import {
   Chip,
   Stack,
   CircularProgress,
+  InputAdornment,
+  Tooltip,
 } from "@mui/material";
 import { FileState } from "../types/index";
+import { SearchOptions } from "../lib/matcher";
+import { SearchOptionsToggle } from "./SearchOptionsToggle";
 
 interface Props {
   file: FileState;
   filter: string;
   onFilterChange: (value: string) => void;
+  searchOptions: SearchOptions;
+  onSearchOptionsChange: (options: SearchOptions) => void;
   selectedCategory: string | null;
   onSelectCategory: (category: string) => void;
   loading: boolean;
@@ -24,13 +32,25 @@ export function CategoryList({
   file,
   filter,
   onFilterChange,
+  searchOptions,
+  onSearchOptionsChange,
   selectedCategory,
   onSelectCategory,
   loading,
   searchButton,
 }: Props) {
-  const filtered = file.categories.filter((c) =>
-    c.toLowerCase().includes(filter.toLowerCase()),
+  const { indices, error: filterError } = useSafeFilter(
+    file.categories,
+    filter,
+    searchOptions,
+  );
+
+  const filtered = useMemo(
+    () =>
+      indices
+        ? Array.from(indices, (i) => file.categories[i])
+        : file.categories,
+    [indices, file.categories],
   );
 
   return (
@@ -44,13 +64,32 @@ export function CategoryList({
       }}
     >
       <Box sx={{ p: 1 }}>
-        <TextField
-          size="small"
-          fullWidth
-          placeholder="Filter categories..."
-          value={filter}
-          onChange={(e) => onFilterChange(e.target.value)}
-        />
+        <Tooltip title={filterError ?? ""} placement="bottom-start">
+          <TextField
+            size="small"
+            fullWidth
+            placeholder={
+              searchOptions.regex
+                ? "Filter categories by regex..."
+                : "Filter categories..."
+            }
+            value={filter}
+            error={!!filterError}
+            onChange={(e) => onFilterChange(e.target.value)}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <SearchOptionsToggle
+                      value={searchOptions}
+                      onChange={onSearchOptionsChange}
+                    />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+        </Tooltip>
       </Box>
       <Box sx={{ px: 1, pb: 1 }}>
         <Stack direction="row" spacing={1} alignItems="center">
