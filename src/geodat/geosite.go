@@ -235,3 +235,53 @@ func ListGeoIPCategories(path string) ([]string, error) {
 	sort.Strings(categories)
 	return categories, nil
 }
+func SaveFilteredGeoSite(srcPath, dstPath string, selectedCategories []string) error {
+	if len(selectedCategories) == 0 {
+		return fmt.Errorf("no categories selected")
+	}
+
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		return fmt.Errorf("failed to read source file: %w", err)
+	}
+
+	geoSiteList, err := v2data.LoadGeoSiteList(data)
+	if err != nil {
+		return fmt.Errorf("failed to load geosite list: %w", err)
+	}
+
+	// Создаем сет выбранных категорий в нижнем регистре для быстрого поиска
+	targetSet := make(map[string]struct{}, len(selectedCategories))
+	for _, c := range selectedCategories {
+		targetSet[strings.ToLower(strings.TrimSpace(c))] = struct{}{}
+	}
+
+	// Фильтруем записи
+	filteredList := &v2data.GeoSiteList{
+		Entry: make([]*v2data.GeoSite, 0),
+	}
+
+	for _, entry := range geoSiteList.GetEntry() {
+		tag := strings.ToLower(entry.GetCountryCode())
+		if _, ok := targetSet[tag]; ok {
+			filteredList.Entry = append(filteredList.Entry, entry)
+		}
+	}
+
+	if len(filteredList.Entry) == 0 {
+		return fmt.Errorf("none of the selected categories were found in the file")
+	}
+
+	// Сериализуем обратно в формат protobuf
+	outBytes, err := proto.Marshal(filteredList)
+	if err != nil {
+		return fmt.Errorf("failed to marshal filtered geosite: %w", err)
+	}
+
+	// Записываем итоговый .dat файл
+	if err := os.WriteFile(dstPath, outBytes, 0644); err != nil {
+		return fmt.Errorf("failed to write output file: %w", err)
+	}
+
+	return nil
+}

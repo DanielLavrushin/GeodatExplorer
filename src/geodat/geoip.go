@@ -117,3 +117,49 @@ func convertV2CidrToText(cidr []*v2data.CIDR, w io.Writer) error {
 	}
 	return bw.Flush()
 }
+func SaveFilteredGeoIP(srcPath, dstPath string, selectedCategories []string) error {
+	if len(selectedCategories) == 0 {
+		return fmt.Errorf("no categories selected")
+	}
+
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		return fmt.Errorf("failed to read source file: %w", err)
+	}
+
+	geoIPList, err := v2data.LoadGeoIPListFromDAT(data)
+	if err != nil {
+		return fmt.Errorf("failed to load geoip list: %w", err)
+	}
+
+	targetSet := make(map[string]struct{}, len(selectedCategories))
+	for _, c := range selectedCategories {
+		targetSet[strings.ToLower(strings.TrimSpace(c))] = struct{}{}
+	}
+
+	filteredList := &v2data.GeoIPList{
+		Entry: make([]*v2data.GeoIP, 0),
+	}
+
+	for _, entry := range geoIPList.GetEntry() {
+		tag := strings.ToLower(entry.GetCountryCode())
+		if _, ok := targetSet[tag]; ok {
+			filteredList.Entry = append(filteredList.Entry, entry)
+		}
+	}
+
+	if len(filteredList.Entry) == 0 {
+		return fmt.Errorf("none of the selected categories were found in the file")
+	}
+
+	outBytes, err := proto.Marshal(filteredList)
+	if err != nil {
+		return fmt.Errorf("failed to marshal filtered geoip: %w", err)
+	}
+
+	if err := os.WriteFile(dstPath, outBytes, 0644); err != nil {
+		return fmt.Errorf("failed to write output file: %w", err)
+	}
+
+	return nil
+}

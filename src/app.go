@@ -122,3 +122,27 @@ func (a *App) SearchGeoSite(path string, query string, opts geodat.SearchOptions
 func (a *App) SearchGeoIP(path string, query string, opts geodat.SearchOptions) ([]geodat.SearchResult, error) {
 	return geodat.SearchGeoIP(path, query, opts)
 }
+
+// SaveFileDialog открывает системный диалог выбора пути для сохранения файла
+func (a *App) SaveFileDialog(defaultName string) (string, error) {
+	return runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "Сохранить отфильтрованный DAT-файл",
+		DefaultFilename: defaultName,
+		Filters: []runtime.FileFilter{
+			{DisplayName: "DAT Files", Pattern: "*.dat"},
+			{DisplayName: "All Files", Pattern: "*"},
+		},
+	})
+}
+
+// ExportSelectedCategories сохраняет только выбранные категории в новый dat-файл
+func (a *App) ExportSelectedCategories(srcPath, dstPath, fileType string, categories []string) error {
+	switch fileType {
+	case "geosite":
+		return geodat.SaveFilteredGeoSite(srcPath, dstPath, categories)
+	case "geoip":
+		return geodat.SaveFilteredGeoIP(srcPath, dstPath, categories)
+	default:
+		return geodat.SaveFilteredGeoSite(srcPath, dstPath, categories)
+	}
+}
