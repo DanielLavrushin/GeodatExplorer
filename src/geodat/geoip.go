@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net"
 	"net/netip"
 	"os"
 	"strings"
@@ -117,7 +118,7 @@ func convertV2CidrToText(cidr []*v2data.CIDR, w io.Writer) error {
 	}
 	return bw.Flush()
 }
-func SaveFilteredGeoIP(srcPath, dstPath string, selectedCategories []string) error {
+func SaveFilteredGeoIP(srcPath, dstPath string, selectedCategories []string, excluded map[string][]string, added map[string][]Entry) error {
 	if len(selectedCategories) == 0 {
 		return fmt.Errorf("no categories selected")
 	}
@@ -142,14 +143,73 @@ func SaveFilteredGeoIP(srcPath, dstPath string, selectedCategories []string) err
 	}
 
 	for _, entry := range geoIPList.GetEntry() {
-		tag := strings.ToLower(entry.GetCountryCode())
-		if _, ok := targetSet[tag]; ok {
-			filteredList.Entry = append(filteredList.Entry, entry)
+		catKey := strings.ToLower(entry.GetCountryCode())
+		if _, ok := targetSet[catKey]; !ok {
+			continue
+		}
+
+		exclSet := make(map[string]struct{})
+		for k, list := range excluded {
+			if strings.ToLower(k) == catKey {
+				for _, val := range list {
+					exclSet[val] = struct{}{}
+				}
+			}
+		}
+
+		newCIDRs := make([]*v2data.CIDR, 0, len(entry.GetCidr()))
+		for _, c := range entry.GetCidr() {
+			cidrStr := fmt.Sprintf("%s/%d", net.IP(c.GetIp()).String(), c.GetPrefix())
+			if _, isExcl := exclSet[cidrStr]; !isExcl {
+				newCIDRs = append(newCIDRs, c)
+			}
+		}
+
+		// Добавляем пользовательские IP/CIDR
+		for k, list := range added {
+			if strings.ToLower(k) == catKey {
+				for _, item := range list {
+					val := strings.TrimSpace(item.Value)
+					if val == "" {
+						continue
+					}
+					if _, isExcl := exclSet[val]; isExcl {
+						continue
+					}
+					if !strings.Contains(val, "/") {
+						if strings.Contains(val, ":") {
+							val += "/128"
+						} else {
+							val += "/32"
+						}
+					}
+					ip, ipNet, err := net.ParseCIDR(val)
+					if err != nil {
+						continue
+					}
+					ones, _ := ipNet.Mask.Size()
+					ipBytes := ip.To4()
+					if ipBytes == nil {
+						ipBytes = ip.To16()
+					}
+					newCIDRs = append(newCIDRs, &v2data.CIDR{
+						Ip:     ipBytes,
+						Prefix: uint32(ones),
+					})
+				}
+			}
+		}
+
+		if len(newCIDRs) > 0 {
+			filteredList.Entry = append(filteredList.Entry, &v2data.GeoIP{
+				CountryCode: entry.GetCountryCode(),
+				Cidr:        newCIDRs,
+			})
 		}
 	}
 
 	if len(filteredList.Entry) == 0 {
-		return fmt.Errorf("none of the selected categories were found in the file")
+		return fmt.Errorf("none of the selected categories/entries remained after filtering")
 	}
 
 	outBytes, err := proto.Marshal(filteredList)
@@ -157,9 +217,5 @@ func SaveFilteredGeoIP(srcPath, dstPath string, selectedCategories []string) err
 		return fmt.Errorf("failed to marshal filtered geoip: %w", err)
 	}
 
-	if err := os.WriteFile(dstPath, outBytes, 0644); err != nil {
-		return fmt.Errorf("failed to write output file: %w", err)
-	}
-
-	return nil
+	return os.WriteFile(dstPath, outBytes, 0644)
 }
