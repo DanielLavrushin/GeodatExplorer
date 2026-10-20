@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/daniellavrushin/geodatexplorer/geodat"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -121,4 +122,28 @@ func (a *App) SearchGeoSite(path string, query string, opts geodat.SearchOptions
 
 func (a *App) SearchGeoIP(path string, query string, opts geodat.SearchOptions) ([]geodat.SearchResult, error) {
 	return geodat.SearchGeoIP(path, query, opts)
+}
+
+// SaveFileDialog открывает системный диалог выбора пути для сохранения файла
+func (a *App) SaveFileDialog(defaultName string) (string, error) {
+	return runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "Сохранить отфильтрованный DAT-файл",
+		DefaultFilename: defaultName,
+		Filters: []runtime.FileFilter{
+			{DisplayName: "DAT Files", Pattern: "*.dat"},
+			{DisplayName: "All Files", Pattern: "*"},
+		},
+	})
+}
+
+// ExportSelectedCategories сохраняет только выбранные категории в новый dat-файл
+func (a *App) ExportSelectedCategories(srcPath string, dstPath string, fileType string, categories []string, excluded map[string][]string, added map[string][]geodat.Entry) error {
+	switch fileType {
+	case "geosite":
+		return geodat.SaveFilteredGeoSite(srcPath, dstPath, categories, excluded, added)
+	case "geoip":
+		return geodat.SaveFilteredGeoIP(srcPath, dstPath, categories, excluded, added)
+	default:
+		return fmt.Errorf("unsupported file type: %s", fileType)
+	}
 }
