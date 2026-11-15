@@ -17,10 +17,12 @@ import {
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import SortIcon from "@mui/icons-material/Sort";
 import FilterListIcon from "@mui/icons-material/FilterList";
+import PlaylistAddCheckIcon from "@mui/icons-material/PlaylistAddCheck";
 import { FileState } from "../types/index";
 import { geodat } from "../wailsjs/go/models";
 import { SearchOptions } from "../lib/matcher";
 import { SearchOptionsToggle } from "./SearchOptionsToggle";
+import { BatchCategoryDialog } from "./BatchCategoryDialog";
 
 interface Props {
   file: FileState;
@@ -59,6 +61,7 @@ export function CategoryList({
   const [sortSelectedFirst, setSortSelectedFirst] = useState(false);
   const [showOnlySelected, setShowOnlySelected] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [batchOpen, setBatchOpen] = useState(false);
 
   const checkedSet = useMemo(() => new Set(checkedCategories), [checkedCategories]);
 
@@ -96,8 +99,25 @@ export function CategoryList({
     setShowOnlySelected(false);
   };
 
-  const handleExport = async () => {
-    if (checkedCategories.length === 0) return;
+  // Применение списка категорий из модального окна к чекбоксам и предпросмотру
+  const handleApplyBatchSelection = (categories: string[], replace: boolean) => {
+    if (replace) {
+      setCheckedCategories(categories);
+      setShowOnlySelected(true);
+    } else {
+      setCheckedCategories((prev) => Array.from(new Set([...prev, ...categories])));
+      setSortSelectedFirst(true);
+    }
+
+    // Сразу загружаем первую категорию из списка в правое окно для предпросмотра доменов/IP
+    if (categories.length > 0 && (!selectedCategory || !categories.includes(selectedCategory))) {
+      onSelectCategory(categories[0]);
+    }
+  };
+
+  // Общая функция экспорта переданного массива категорий
+  const exportCategoriesList = async (categoriesToExport: string[]) => {
+    if (categoriesToExport.length === 0) return;
     try {
       setExporting(true);
       const defaultName = file.type === "geoip" ? "geoip.dat" : "geosite.dat";
@@ -117,11 +137,13 @@ export function CategoryList({
         file.path,
         savePath,
         file.type,
-        checkedCategories,
+        categoriesToExport,
         excludedByCat,
         addedByCat,
       );
-      alert(`Успешно экспортировано категорий: ${checkedCategories.length}\nФайл сохранён в:\n${savePath}`);
+      alert(
+        `Успешно экспортировано категорий: ${categoriesToExport.length}\nФайл сохранён в:\n${savePath}`,
+      );
     } catch (err: any) {
       alert(`Ошибка при экспорте: ${err?.message || err}`);
     } finally {
@@ -182,12 +204,23 @@ export function CategoryList({
 
       <Box sx={{ px: 1, pb: 1 }}>
         <Stack direction="row" spacing={0.5} sx={{ mb: 1 }} alignItems="center">
-          <Button size="small" variant="text" onClick={handleSelectAllFiltered}>
+          <Button size="small" variant="text" onClick={handleSelectAllFiltered} sx={{ minWidth: "auto", px: 1 }}>
             Все
           </Button>
-          <Button size="small" variant="text" color="inherit" onClick={handleClearSelection}>
+          <Button size="small" variant="text" color="inherit" onClick={handleClearSelection} sx={{ minWidth: "auto", px: 1 }}>
             Сброс
           </Button>
+          <Tooltip title="Выбрать или экспортировать категории по списку (.txt / буфер обмена)">
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<PlaylistAddCheckIcon fontSize="small" />}
+              onClick={() => setBatchOpen(true)}
+              sx={{ minWidth: "auto", px: 1, textTransform: "none" }}
+            >
+              Список
+            </Button>
+          </Tooltip>
           <Box sx={{ ml: "auto", display: "flex", gap: 0.5 }}>
             <Tooltip title="Выбранные наверх">
               <Button
@@ -218,7 +251,7 @@ export function CategoryList({
           color="success"
           startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <FileDownloadIcon />}
           disabled={checkedCategories.length === 0 || exporting}
-          onClick={handleExport}
+          onClick={() => exportCategoriesList(checkedCategories)}
         >
           Экспорт ({checkedCategories.length})
         </Button>
@@ -262,6 +295,18 @@ export function CategoryList({
           })
         )}
       </List>
+
+      <BatchCategoryDialog
+        open={batchOpen}
+        onClose={() => setBatchOpen(false)}
+        availableCategories={file.categories}
+        fileType={file.type}
+        onApplySelection={handleApplyBatchSelection}
+        onDirectExport={(cats) => {
+          handleApplyBatchSelection(cats, true);
+          exportCategoriesList(cats);
+        }}
+      />
     </Box>
   );
 }
