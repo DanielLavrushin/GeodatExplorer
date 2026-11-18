@@ -20,6 +20,10 @@ import FilterListIcon from "@mui/icons-material/FilterList";
 import PlaylistAddCheckIcon from "@mui/icons-material/PlaylistAddCheck";
 import { FileState } from "../types/index";
 import { geodat } from "../wailsjs/go/models";
+import {
+  ExportSelectedCategories,
+  SaveFileDialog,
+} from "../wailsjs/go/main/App";
 import { SearchOptions } from "../lib/matcher";
 import { SearchOptionsToggle } from "./SearchOptionsToggle";
 import { BatchCategoryDialog } from "./BatchCategoryDialog";
@@ -121,22 +125,16 @@ export function CategoryList({
     try {
       setExporting(true);
       const defaultName = file.type === "geoip" ? "geoip.dat" : "geosite.dat";
-
-      const app = (window as any).go?.main?.App;
-      if (!app) {
-        throw new Error("Wails runtime недоступен");
-      }
-
-      const savePath = await app.SaveFileDialog(defaultName);
+      const savePath = await SaveFileDialog(defaultName);
       if (!savePath) {
         setExporting(false);
         return;
       }
 
-      await app.ExportSelectedCategories(
+      await ExportSelectedCategories(
         file.path,
         savePath,
-        file.type,
+        file.type ?? "",
         categoriesToExport,
         excludedByCat,
         addedByCat,
