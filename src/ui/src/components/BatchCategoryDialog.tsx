@@ -69,6 +69,7 @@ export function BatchCategoryDialog({
 }: Props) {
   const [rawText, setRawText] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [clipboardError, setClipboardError] = useState(false);
 
   // Таблица соответствия: нижний_регистр -> оригинальное_название в .dat файле
   const categoryLookup = useMemo(() => {
@@ -98,13 +99,14 @@ export function BatchCategoryDialog({
   }, [rawText, categoryLookup, fileType]);
 
   const handlePasteClipboard = async () => {
+    setClipboardError(false);
     try {
       const text = await navigator.clipboard.readText();
       if (text) {
         setRawText((prev) => (prev ? `${prev}\n${text}` : text));
       }
     } catch {
-      alert("Не удалось прочитать буфер обмена. Нажмите Ctrl+V в текстовом поле.");
+      setClipboardError(true);
     }
   };
 
@@ -131,6 +133,12 @@ export function BatchCategoryDialog({
 
       <DialogContent dividers>
         <Stack spacing={2}>
+          {clipboardError && (
+            <Alert severity="warning" onClose={() => setClipboardError(false)}>
+              Could not read the clipboard. Paste with Ctrl+V in the text field
+              instead.
+            </Alert>
+          )}
           <Stack direction="row" spacing={1} flexWrap="wrap">
             <Button
               variant="outlined"

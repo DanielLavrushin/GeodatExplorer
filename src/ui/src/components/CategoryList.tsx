@@ -13,6 +13,8 @@ import {
   Tooltip,
   Checkbox,
   Button,
+  Snackbar,
+  Alert,
 } from "@mui/material";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import SortIcon from "@mui/icons-material/Sort";
@@ -66,6 +68,16 @@ export function CategoryList({
   const [showOnlySelected, setShowOnlySelected] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [batchOpen, setBatchOpen] = useState(false);
+  const [notice, setNotice] = useState<{
+    severity: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [noticeOpen, setNoticeOpen] = useState(false);
+
+  const showNotice = (severity: "success" | "error", text: string) => {
+    setNotice({ severity, text });
+    setNoticeOpen(true);
+  };
 
   const checkedSet = useMemo(() => new Set(checkedCategories), [checkedCategories]);
 
@@ -139,11 +151,16 @@ export function CategoryList({
         excludedByCat,
         addedByCat,
       );
-      alert(
-        `Успешно экспортировано категорий: ${categoriesToExport.length}\nФайл сохранён в:\n${savePath}`,
+      showNotice(
+        "success",
+        `Exported ${categoriesToExport.length} ${categoriesToExport.length === 1 ? "category" : "categories"} to ${savePath}`,
       );
-    } catch (err: any) {
-      alert(`Ошибка при экспорте: ${err?.message || err}`);
+    } catch (err) {
+      // Wails rejects with the Go error message as a plain string.
+      showNotice(
+        "error",
+        `Export failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setExporting(false);
     }
@@ -305,6 +322,22 @@ export function CategoryList({
           exportCategoriesList(cats);
         }}
       />
+
+      <Snackbar
+        open={noticeOpen}
+        autoHideDuration={notice?.severity === "success" ? 6000 : null}
+        onClose={(_, reason) => reason !== "clickaway" && setNoticeOpen(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+      >
+        <Alert
+          severity={notice?.severity ?? "success"}
+          variant="filled"
+          onClose={() => setNoticeOpen(false)}
+          sx={{ wordBreak: "break-word" }}
+        >
+          {notice?.text}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
