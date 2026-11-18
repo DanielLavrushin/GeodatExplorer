@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo } from "react";
 import { Box, IconButton, Tooltip } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import { CategoryList } from "./CategoryList";
 import { EntryList } from "./EntryList";
 import { GlobalSearch } from "./GlobalSearch";
@@ -30,6 +31,8 @@ export function FileBrowser({ file }: Props) {
   const [loading, setLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
+  const [exportMode, setExportMode] = useState(false);
+  const [exportSelection, setExportSelection] = useState<string[]>([]);
   const [excludedByCat, setExcludedByCat] = useState<Record<string, string[]>>({});
   const [addedByCat, setAddedByCat] = useState<Record<string, geodat.Entry[]>>({});
 
@@ -63,11 +66,16 @@ export function FileBrowser({ file }: Props) {
     }
   };
 
-  const combinedEntries = useMemo(() => {
-    if (!selectedCategory) return [];
+  const editable =
+    exportMode &&
+    !!selectedCategory &&
+    exportSelection.includes(selectedCategory);
+
+  const shownEntries = useMemo(() => {
+    if (!editable || !selectedCategory) return entries;
     const custom = addedByCat[selectedCategory] || [];
     return [...custom, ...entries];
-  }, [entries, addedByCat, selectedCategory]);
+  }, [editable, entries, addedByCat, selectedCategory]);
 
   const currentExcluded = useMemo(() => {
     if (!selectedCategory) return [];
@@ -79,25 +87,6 @@ export function FileBrowser({ file }: Props) {
     setExcludedByCat((prev) => ({
       ...prev,
       [selectedCategory]: newExcluded,
-    }));
-  };
-
-  const handleAddEntry = (entry: geodat.Entry) => {
-    if (!selectedCategory) return;
-    const key = entryKey(entry);
-    if (!entries.some((e) => entryKey(e) === key)) {
-      setAddedByCat((prev) => {
-        const existing = prev[selectedCategory] || [];
-        if (existing.some((e) => entryKey(e) === key)) return prev;
-        return {
-          ...prev,
-          [selectedCategory]: [entry, ...existing],
-        };
-      });
-    }
-    setExcludedByCat((prev) => ({
-      ...prev,
-      [selectedCategory]: (prev[selectedCategory] || []).filter((k) => k !== key),
     }));
   };
 
@@ -182,24 +171,54 @@ export function FileBrowser({ file }: Props) {
         selectedCategory={selectedCategory}
         onSelectCategory={handleSelectCategory}
         loading={loading}
-        excludedByCat={excludedByCat}
-        addedByCat={addedByCat}
-        searchButton={
-          <Tooltip title="Global search (find which category contains...)">
-            <IconButton size="small" onClick={() => setSearchOpen(true)}>
-              <SearchIcon />
-            </IconButton>
-          </Tooltip>
+        exportState={
+          exportMode
+            ? {
+                selection: exportSelection,
+                setSelection: setExportSelection,
+                excludedByCat,
+                addedByCat,
+              }
+            : null
+        }
+        actions={
+          <>
+            <Tooltip title="Global search (find which category contains...)">
+              <IconButton size="small" onClick={() => setSearchOpen(true)}>
+                <SearchIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip
+              title={
+                exportMode
+                  ? "Leave export mode"
+                  : "Export categories to a new .dat file"
+              }
+            >
+              <IconButton
+                size="small"
+                color={exportMode ? "primary" : "default"}
+                onClick={() => setExportMode((v) => !v)}
+              >
+                <FileDownloadOutlinedIcon />
+              </IconButton>
+            </Tooltip>
+          </>
         }
       />
       <EntryList
         category={selectedCategory}
         fileType={file.type}
-        entries={combinedEntries}
-        excludedKeys={currentExcluded}
-        onChangeExcluded={handleUpdateExcluded}
-        onAddEntry={handleAddEntry}
-        onApplyTextList={handleApplyTextList}
+        entries={shownEntries}
+        editing={
+          editable
+            ? {
+                excludedKeys: currentExcluded,
+                onChangeExcluded: handleUpdateExcluded,
+                onApplyText: handleApplyTextList,
+              }
+            : null
+        }
         filter={entryFilter}
         onFilterChange={setEntryFilter}
         searchOptions={entrySearchOptions}

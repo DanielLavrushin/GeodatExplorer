@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSafeFilter } from "../lib/useSafeFilter";
 import {
   Box,
@@ -12,23 +12,11 @@ import {
   InputAdornment,
   Tooltip,
   Checkbox,
-  Button,
-  Snackbar,
-  Alert,
 } from "@mui/material";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import SortIcon from "@mui/icons-material/Sort";
-import FilterListIcon from "@mui/icons-material/FilterList";
-import PlaylistAddCheckIcon from "@mui/icons-material/PlaylistAddCheck";
 import { FileState } from "../types/index";
-import { geodat } from "../wailsjs/go/models";
-import {
-  ExportSelectedCategories,
-  SaveFileDialog,
-} from "../wailsjs/go/main/App";
 import { SearchOptions } from "../lib/matcher";
 import { SearchOptionsToggle } from "./SearchOptionsToggle";
-import { BatchCategoryDialog } from "./BatchCategoryDialog";
+import { ExportBar, ExportState } from "./ExportBar";
 
 interface Props {
   file: FileState;
@@ -39,9 +27,8 @@ interface Props {
   selectedCategory: string | null;
   onSelectCategory: (category: string) => void;
   loading: boolean;
-  excludedByCat: Record<string, string[]>;
-  addedByCat: Record<string, geodat.Entry[]>;
-  searchButton?: React.ReactNode;
+  actions?: React.ReactNode;
+  exportState: ExportState | null;
 }
 
 export function CategoryList({
@@ -53,9 +40,8 @@ export function CategoryList({
   selectedCategory,
   onSelectCategory,
   loading,
-  excludedByCat,
-  addedByCat,
-  searchButton,
+  actions,
+  exportState,
 }: Props) {
   const { indices, error: filterError } = useSafeFilter(
     file.categories,
@@ -63,109 +49,48 @@ export function CategoryList({
     searchOptions,
   );
 
-  const [checkedCategories, setCheckedCategories] = useState<string[]>([]);
-  const [sortSelectedFirst, setSortSelectedFirst] = useState(false);
-  const [showOnlySelected, setShowOnlySelected] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [batchOpen, setBatchOpen] = useState(false);
-  const [notice, setNotice] = useState<{
-    severity: "success" | "error";
-    text: string;
-  } | null>(null);
-  const [noticeOpen, setNoticeOpen] = useState(false);
+  const filtered = useMemo(
+    () =>
+      indices
+        ? Array.from(indices, (i) => file.categories[i])
+        : file.categories,
+    [indices, file.categories],
+  );
 
-  const showNotice = (severity: "success" | "error", text: string) => {
-    setNotice({ severity, text });
-    setNoticeOpen(true);
-  };
+  const [showSelectedOnly, setShowSelectedOnly] = useState(false);
+  const selection = exportState?.selection;
+  const selectionSet = useMemo(() => new Set(selection ?? []), [selection]);
 
-  const checkedSet = useMemo(() => new Set(checkedCategories), [checkedCategories]);
+  useEffect(() => {
+    if (selectionSet.size === 0) setShowSelectedOnly(false);
+  }, [selectionSet]);
 
-  const filtered = useMemo(() => {
-    let base = indices
-      ? Array.from(indices, (i) => file.categories[i])
-      : file.categories;
+  const shown = useMemo(
+    () =>
+      exportState && showSelectedOnly
+        ? filtered.filter((cat) => selectionSet.has(cat))
+        : filtered,
+    [exportState, showSelectedOnly, filtered, selectionSet],
+  );
 
-    if (showOnlySelected) {
-      base = base.filter((cat) => checkedSet.has(cat));
-    } else if (sortSelectedFirst) {
-      base = [...base].sort((a, b) => {
-        const aChecked = checkedSet.has(a) ? 0 : 1;
-        const bChecked = checkedSet.has(b) ? 0 : 1;
-        return aChecked - bChecked;
-      });
-    }
+  const isModified = (cat: string) =>
+    !!exportState &&
+    ((exportState.excludedByCat[cat]?.length ?? 0) > 0 ||
+      (exportState.addedByCat[cat]?.length ?? 0) > 0);
 
-    return base;
-  }, [indices, file.categories, showOnlySelected, sortSelectedFirst, checkedSet]);
-
-  const handleToggle = (cat: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCheckedCategories((prev) =>
-      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
+  const toggleSelected = (cat: string) => {
+    if (!exportState) return;
+    exportState.setSelection(
+      selectionSet.has(cat)
+        ? exportState.selection.filter((c) => c !== cat)
+        : [...exportState.selection, cat],
     );
-  };
-
-  const handleSelectAllFiltered = () => {
-    setCheckedCategories((prev) => Array.from(new Set([...prev, ...filtered])));
-  };
-
-  const handleClearSelection = () => {
-    setCheckedCategories([]);
-    setShowOnlySelected(false);
-  };
-
-  const handleApplyBatchSelection = (categories: string[], replace: boolean) => {
-    if (replace) {
-      setCheckedCategories(categories);
-      setShowOnlySelected(true);
-    } else {
-      setCheckedCategories((prev) => Array.from(new Set([...prev, ...categories])));
-      setSortSelectedFirst(true);
-    }
-
-    if (categories.length > 0 && (!selectedCategory || !categories.includes(selectedCategory))) {
-      onSelectCategory(categories[0]);
-    }
-  };
-
-  const exportCategoriesList = async (categoriesToExport: string[]) => {
-    if (categoriesToExport.length === 0) return;
-    try {
-      setExporting(true);
-      const defaultName = file.type === "geoip" ? "geoip.dat" : "geosite.dat";
-      const savePath = await SaveFileDialog(defaultName);
-      if (!savePath) {
-        setExporting(false);
-        return;
-      }
-
-      await ExportSelectedCategories(
-        file.path,
-        savePath,
-        file.type ?? "",
-        categoriesToExport,
-        excludedByCat,
-        addedByCat,
-      );
-      showNotice(
-        "success",
-        `Exported ${categoriesToExport.length} ${categoriesToExport.length === 1 ? "category" : "categories"} to ${savePath}`,
-      );
-    } catch (err) {
-      showNotice(
-        "error",
-        `Export failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    } finally {
-      setExporting(false);
-    }
   };
 
   return (
     <Box
       sx={{
-        width: 320,
+        width: 280,
         display: "flex",
         flexDirection: "column",
         borderRight: 1,
@@ -200,7 +125,6 @@ export function CategoryList({
           />
         </Tooltip>
       </Box>
-
       <Box sx={{ px: 1, pb: 1 }}>
         <Stack direction="row" spacing={1} alignItems="center">
           <Chip label={file.type} size="small" color="primary" />
@@ -209,131 +133,56 @@ export function CategoryList({
             size="small"
             variant="outlined"
           />
-          <Box sx={{ ml: "auto" }}>{searchButton}</Box>
+          <Box sx={{ ml: "auto" }}>{actions}</Box>
         </Stack>
       </Box>
-
-      <Box sx={{ px: 1, pb: 1 }}>
-        <Stack direction="row" spacing={0.5} sx={{ mb: 1 }} alignItems="center">
-          <Button size="small" variant="text" onClick={handleSelectAllFiltered} sx={{ minWidth: "auto", px: 1 }}>
-            All
-          </Button>
-          <Button size="small" variant="text" color="inherit" onClick={handleClearSelection} sx={{ minWidth: "auto", px: 1 }}>
-            Clear
-          </Button>
-          <Tooltip title="Select or export categories from a list (.txt file or clipboard)">
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<PlaylistAddCheckIcon fontSize="small" />}
-              onClick={() => setBatchOpen(true)}
-              sx={{ minWidth: "auto", px: 1, textTransform: "none" }}
-            >
-              List
-            </Button>
-          </Tooltip>
-          <Box sx={{ ml: "auto", display: "flex", gap: 0.5 }}>
-            <Tooltip title="Checked first">
-              <Button
-                size="small"
-                variant={sortSelectedFirst ? "contained" : "outlined"}
-                onClick={() => setSortSelectedFirst((v) => !v)}
-                sx={{ minWidth: 32, px: 1 }}
-              >
-                <SortIcon fontSize="small" />
-              </Button>
-            </Tooltip>
-            <Tooltip title="Show checked only">
-              <Button
-                size="small"
-                variant={showOnlySelected ? "contained" : "outlined"}
-                onClick={() => setShowOnlySelected((v) => !v)}
-                sx={{ minWidth: 32, px: 1 }}
-              >
-                <FilterListIcon fontSize="small" />
-              </Button>
-            </Tooltip>
-          </Box>
-        </Stack>
-        <Button
-          fullWidth
-          size="small"
-          variant="contained"
-          color="success"
-          startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <FileDownloadIcon />}
-          disabled={checkedCategories.length === 0 || exporting}
-          onClick={() => exportCategoriesList(checkedCategories)}
-        >
-          Export ({checkedCategories.length})
-        </Button>
-      </Box>
-
       <List sx={{ flex: 1, overflow: "auto" }} dense>
         {loading && !selectedCategory ? (
           <Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
             <CircularProgress size={24} />
           </Box>
         ) : (
-          filtered.map((cat) => {
-            const isModified =
-              (excludedByCat[cat]?.length ?? 0) > 0 ||
-              (addedByCat[cat]?.length ?? 0) > 0;
-            return (
-              <ListItemButton
-                key={cat}
-                selected={selectedCategory === cat}
-                onClick={() => onSelectCategory(cat)}
-              >
+          shown.map((cat) => (
+            <ListItemButton
+              key={cat}
+              selected={selectedCategory === cat}
+              onClick={() => onSelectCategory(cat)}
+            >
+              {exportState && (
                 <Checkbox
                   edge="start"
                   size="small"
-                  checked={checkedSet.has(cat)}
                   disableRipple
-                  onClick={(e) => handleToggle(cat, e)}
-                  slotProps={{ input: { "aria-label": `Export category ${cat}` } }}
-                  sx={{ mr: 0.5, p: 0.5 }}
+                  checked={selectionSet.has(cat)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSelected(cat);
+                  }}
+                  sx={{ p: 0.5, mr: 0.5 }}
+                  slotProps={{ input: { "aria-label": `Export ${cat}` } }}
                 />
-                <ListItemText
-                  primary={
-                    cat.length === 2
-                      ? `${String.fromCodePoint(...[...cat.toUpperCase()].map((c) => 0x1f1e6 + (c.codePointAt(0) ?? 65) - 65))} ${cat.toUpperCase()}${isModified ? " *" : ""}`
-                      : `🏷️ ${cat}${isModified ? " *" : ""}`
-                  }
-                  slotProps={{ primary: { sx: { fontFamily: "monospace" } } }}
-                />
-              </ListItemButton>
-            );
-          })
+              )}
+              <ListItemText
+                primary={`${
+                  cat.length === 2
+                    ? `${String.fromCodePoint(...[...cat.toUpperCase()].map((c) => 0x1f1e6 + (c.codePointAt(0) ?? 65) - 65))} ${cat.toUpperCase()}`
+                    : `🏷️ ${cat}`
+                }${isModified(cat) ? " *" : ""}`}
+                slotProps={{ primary: { sx: { fontFamily: "monospace" } } }}
+              />
+            </ListItemButton>
+          ))
         )}
       </List>
-
-      <BatchCategoryDialog
-        open={batchOpen}
-        onClose={() => setBatchOpen(false)}
-        availableCategories={file.categories}
-        fileType={file.type}
-        onApplySelection={handleApplyBatchSelection}
-        onDirectExport={(cats) => {
-          handleApplyBatchSelection(cats, true);
-          exportCategoriesList(cats);
-        }}
-      />
-
-      <Snackbar
-        open={noticeOpen}
-        autoHideDuration={notice?.severity === "success" ? 6000 : null}
-        onClose={(_, reason) => reason !== "clickaway" && setNoticeOpen(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-      >
-        <Alert
-          severity={notice?.severity ?? "success"}
-          variant="filled"
-          onClose={() => setNoticeOpen(false)}
-          sx={{ wordBreak: "break-word" }}
-        >
-          {notice?.text}
-        </Alert>
-      </Snackbar>
+      {exportState && (
+        <ExportBar
+          file={file}
+          state={exportState}
+          shownCategories={filtered}
+          showSelectedOnly={showSelectedOnly}
+          onShowSelectedOnlyChange={setShowSelectedOnly}
+        />
+      )}
     </Box>
   );
 }

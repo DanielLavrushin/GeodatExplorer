@@ -11,7 +11,9 @@ import {
   InputAdornment,
   Tooltip,
   Checkbox,
-  Select,
+  IconButton,
+  ListItemIcon,
+  Menu,
   MenuItem,
 } from "@mui/material";
 import LanguageIcon from "@mui/icons-material/Language";
@@ -20,25 +22,28 @@ import SearchIcon from "@mui/icons-material/Search";
 import CodeIcon from "@mui/icons-material/Code";
 import HubIcon from "@mui/icons-material/Hub";
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
-import SortIcon from "@mui/icons-material/Sort";
+import CheckIcon from "@mui/icons-material/Check";
 import EditNoteIcon from "@mui/icons-material/EditNote";
-import AddIcon from "@mui/icons-material/Add";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
 import { geodat } from "../wailsjs/go/models";
 import { SearchOptions } from "../lib/matcher";
 import { useDebounced } from "../lib/useDebounced";
 import { useSafeFilter } from "../lib/useSafeFilter";
 import { SearchOptionsToggle } from "./SearchOptionsToggle";
-import { FileType } from "../types";
+import { FileType } from "../types/index";
 import { entryKey } from "../lib/entryKey";
+
+export interface EntryEditing {
+  excludedKeys: string[];
+  onChangeExcluded: (excludedKeys: string[]) => void;
+  onApplyText: (lines: string[], scopeKeys: string[]) => void;
+}
 
 interface Props {
   category: string | null;
   fileType: FileType;
   entries: geodat.Entry[];
-  excludedKeys: string[];
-  onChangeExcluded: (excludedKeys: string[]) => void;
-  onAddEntry: (entry: geodat.Entry) => void;
-  onApplyTextList: (lines: string[], scopeKeys: string[]) => void;
+  editing: EntryEditing | null;
   filter: string;
   onFilterChange: (value: string) => void;
   searchOptions: SearchOptions;
@@ -88,10 +93,7 @@ export function EntryList({
   category,
   fileType,
   entries,
-  excludedKeys,
-  onChangeExcluded,
-  onAddEntry,
-  onApplyTextList,
+  editing,
   filter,
   onFilterChange,
   searchOptions,
@@ -99,26 +101,11 @@ export function EntryList({
   loading,
 }: Props) {
   const [visibleCount, setVisibleCount] = useState(CHUNK_SIZE);
-  const [sortCheckedFirst, setSortCheckedFirst] = useState(false);
-  const [showOnlyChecked, setShowOnlyChecked] = useState(false);
-
-  const [newEntryType, setNewEntryType] = useState("domain");
-  const [newEntryValue, setNewEntryValue] = useState("");
-
-  const [textMode, setTextMode] = useState(false);
-  const [rawText, setRawText] = useState("");
-  const [textScope, setTextScope] = useState<string[]>([]);
-
-  useEffect(() => {
-    setNewEntryType(fileType === "geoip" ? "cidr" : "domain");
-    setTextMode(false);
-  }, [category, fileType]);
-
-  const excludedSet = useMemo(() => new Set(excludedKeys), [excludedKeys]);
 
   // A category can hold tens of thousands of entries, so wait for a pause in
   // typing before re-scanning them all.
   const debouncedFilter = useDebounced(filter, 150);
+
   const values = useMemo(() => entries.map((e) => e.value), [entries]);
   const { indices, error: filterError } = useSafeFilter(
     values,
@@ -126,21 +113,72 @@ export function EntryList({
     searchOptions,
   );
 
+  const isEditing = !!editing;
+  const excludedKeys = editing?.excludedKeys;
+  const excludedSet = useMemo(
+    () => new Set(excludedKeys ?? []),
+    [excludedKeys],
+  );
+  const [showIncludedOnly, setShowIncludedOnly] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [textMode, setTextMode] = useState(false);
+  const [rawText, setRawText] = useState("");
+  const [textScope, setTextScope] = useState<string[]>([]);
+
+  useEffect(() => {
+    setTextMode(false);
+  }, [category, isEditing]);
+
   const filtered = useMemo(() => {
-    let list = indices ? Array.from(indices, (i) => entries[i]) : entries;
+    const list = indices ? Array.from(indices, (i) => entries[i]) : entries;
+    return isEditing && showIncludedOnly
+      ? list.filter((e) => !excludedSet.has(entryKey(e)))
+      : list;
+  }, [indices, entries, isEditing, showIncludedOnly, excludedSet]);
 
-    if (showOnlyChecked) {
-      list = list.filter((e) => !excludedSet.has(entryKey(e)));
-    } else if (sortCheckedFirst) {
-      list = [...list].sort((a, b) => {
-        const aChecked = excludedSet.has(entryKey(a)) ? 1 : 0;
-        const bChecked = excludedSet.has(entryKey(b)) ? 1 : 0;
-        return aChecked - bChecked;
-      });
-    }
+  const includedCount = useMemo(
+    () => entries.filter((e) => !excludedSet.has(entryKey(e))).length,
+    [entries, excludedSet],
+  );
 
-    return list;
-  }, [indices, entries, showOnlyChecked, sortCheckedFirst, excludedSet]);
+  const toggleEntry = (key: string) => {
+    if (!editing) return;
+    editing.onChangeExcluded(
+      excludedSet.has(key)
+        ? editing.excludedKeys.filter((k) => k !== key)
+        : [...editing.excludedKeys, key],
+    );
+  };
+
+  const setShownIncluded = (include: boolean) => {
+    if (!editing) return;
+    const shownKeys = new Set(filtered.map(entryKey));
+    editing.onChangeExcluded(
+      include
+        ? editing.excludedKeys.filter((k) => !shownKeys.has(k))
+        : Array.from(new Set([...editing.excludedKeys, ...shownKeys])),
+    );
+  };
+
+  const openTextMode = () => {
+    const shown = filtered.filter((e) => !excludedSet.has(entryKey(e)));
+    setRawText(
+      shown
+        .map((e) =>
+          fileType === "geosite" && e.type !== "domain" ? entryKey(e) : e.value,
+        )
+        .join("\n"),
+    );
+    setTextScope(shown.map(entryKey));
+    setTextMode(true);
+  };
+
+  const applyTextMode = () => {
+    editing?.onApplyText(rawText.split("\n"), textScope);
+    setTextMode(false);
+  };
+
+  const closeMenu = () => setMenuAnchor(null);
 
   useEffect(() => {
     setVisibleCount(CHUNK_SIZE);
@@ -148,60 +186,6 @@ export function EntryList({
 
   const visible = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
-  const activeCount = useMemo(
-    () => entries.filter((e) => !excludedSet.has(entryKey(e))).length,
-    [entries, excludedSet],
-  );
-
-  const handleToggleEntry = (key: string) => {
-    if (excludedSet.has(key)) {
-      onChangeExcluded(excludedKeys.filter((k) => k !== key));
-    } else {
-      onChangeExcluded([...excludedKeys, key]);
-    }
-  };
-
-  const handleSelectAllFiltered = () => {
-    const filteredKeys = new Set(filtered.map(entryKey));
-    onChangeExcluded(excludedKeys.filter((k) => !filteredKeys.has(k)));
-  };
-
-  const handleUnselectAllFiltered = () => {
-    const toExclude = new Set(excludedKeys);
-    for (const e of filtered) {
-      toExclude.add(entryKey(e));
-    }
-    onChangeExcluded(Array.from(toExclude));
-  };
-
-  const handleAddSubmit = () => {
-    const trimmed = newEntryValue.trim();
-    if (!trimmed) return;
-    onAddEntry({
-      type: fileType === "geoip" ? "cidr" : newEntryType,
-      value: trimmed,
-    } as geodat.Entry);
-    setNewEntryValue("");
-  };
-
-  const activeFilteredEntries = useMemo(
-    () => filtered.filter((e) => !excludedSet.has(entryKey(e))),
-    [filtered, excludedSet],
-  );
-
-  const handleOpenTextMode = () => {
-    const lines = activeFilteredEntries.map((e) =>
-      fileType === "geosite" && e.type !== "domain" ? entryKey(e) : e.value,
-    );
-    setRawText(lines.join("\n"));
-    setTextScope(activeFilteredEntries.map(entryKey));
-    setTextMode(true);
-  };
-
-  const handleSaveTextMode = () => {
-    onApplyTextList(rawText.split("\n"), textScope);
-    setTextMode(false);
-  };
 
   return (
     <Box
@@ -214,45 +198,28 @@ export function EntryList({
     >
       {category && (
         <Box sx={{ p: 1, borderBottom: 1, borderColor: "divider" }}>
-          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
+          <Stack direction="row" spacing={2} alignItems="center">
             <Typography variant="subtitle1" fontWeight="bold">
               {category}
             </Typography>
             <Chip
-              label={
-                filtered.length !== entries.length
-                  ? `${filtered.length} shown · ${activeCount} / ${entries.length} selected`
-                  : `${activeCount} / ${entries.length} selected`
-              }
+              label={`${filtered.length} entries`}
               size="small"
-              color={activeCount < entries.length ? "warning" : "primary"}
               variant="outlined"
             />
-            <Button
-              size="small"
-              variant={textMode ? "contained" : "outlined"}
-              startIcon={<EditNoteIcon />}
-              onClick={() => (textMode ? handleSaveTextMode() : handleOpenTextMode())}
-            >
-              {textMode ? "Apply text" : "Edit as text"}
-            </Button>
-            {textMode && (
-              <Button size="small" color="inherit" onClick={() => setTextMode(false)}>
-                Cancel
-              </Button>
-            )}
-
             <Tooltip title={filterError ?? ""} placement="bottom-end">
               <TextField
                 size="small"
                 placeholder={
-                  searchOptions.regex ? "Filter by regex..." : "Filter entries..."
+                  searchOptions.regex
+                    ? "Filter by regex..."
+                    : "Filter entries..."
                 }
                 value={filter}
                 disabled={textMode}
                 error={!!filterError}
                 onChange={(e) => onFilterChange(e.target.value)}
-                sx={{ ml: "auto", width: 260 }}
+                sx={{ ml: "auto", width: 280 }}
                 slotProps={{
                   input: {
                     endAdornment: (
@@ -268,64 +235,92 @@ export function EntryList({
               />
             </Tooltip>
           </Stack>
-
-          {!textMode && (
-            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-              <Button size="small" variant="text" onClick={handleSelectAllFiltered}>
-                Check all
-              </Button>
-              <Button size="small" variant="text" color="inherit" onClick={handleUnselectAllFiltered}>
-                Uncheck all
-              </Button>
-              <Button
-                size="small"
-                variant={sortCheckedFirst ? "contained" : "outlined"}
-                startIcon={<SortIcon />}
-                onClick={() => setSortCheckedFirst((v) => !v)}
-              >
-                Checked first
-              </Button>
-              <Button
-                size="small"
-                variant={showOnlyChecked ? "contained" : "outlined"}
-                onClick={() => setShowOnlyChecked((v) => !v)}
-              >
-                Checked only
-              </Button>
-
-              <Stack direction="row" spacing={0.5} sx={{ ml: "auto" }} alignItems="center">
-                {fileType === "geosite" && (
-                  <Select
+          {editing && (
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              sx={{ mt: 1 }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                {textMode
+                  ? fileType === "geoip"
+                    ? "One IP or CIDR per line"
+                    : "One rule per line, e.g. example.com or full:example.com"
+                  : `${includedCount} of ${entries.length} included in export`}
+              </Typography>
+              <Box sx={{ flex: 1 }} />
+              {textMode ? (
+                <>
+                  <Button
                     size="small"
-                    value={newEntryType}
-                    onChange={(e) => setNewEntryType(e.target.value)}
-                    sx={{ height: 32, fontSize: 13 }}
+                    color="inherit"
+                    onClick={() => setTextMode(false)}
+                    sx={{ textTransform: "none" }}
                   >
-                    <MenuItem value="domain">domain</MenuItem>
-                    <MenuItem value="full">full</MenuItem>
-                    <MenuItem value="keyword">keyword</MenuItem>
-                    <MenuItem value="regexp">regexp</MenuItem>
-                  </Select>
-                )}
-                <TextField
-                  size="small"
-                  placeholder={fileType === "geoip" ? "Add IP/CIDR..." : "Add domain..."}
-                  value={newEntryValue}
-                  onChange={(e) => setNewEntryValue(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAddSubmit()}
-                  sx={{ width: 200 }}
-                />
-                <Button
-                  size="small"
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={handleAddSubmit}
-                >
-                  Add
-                </Button>
-              </Stack>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={applyTextMode}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Apply
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    size="small"
+                    startIcon={<EditNoteIcon />}
+                    onClick={openTextMode}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Edit as text
+                  </Button>
+                  <IconButton
+                    size="small"
+                    aria-label="More entry actions"
+                    onClick={(e) => setMenuAnchor(e.currentTarget)}
+                  >
+                    <MoreVertIcon fontSize="small" />
+                  </IconButton>
+                </>
+              )}
             </Stack>
           )}
+          <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={closeMenu}>
+            <MenuItem
+              onClick={() => {
+                setShowIncludedOnly((v) => !v);
+                closeMenu();
+              }}
+            >
+              <ListItemIcon>
+                {showIncludedOnly && <CheckIcon fontSize="small" />}
+              </ListItemIcon>
+              Show included only
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setShownIncluded(true);
+                closeMenu();
+              }}
+            >
+              <ListItemIcon />
+              Include all shown ({filtered.length})
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setShownIncluded(false);
+                closeMenu();
+              }}
+            >
+              <ListItemIcon />
+              Exclude all shown ({filtered.length})
+            </MenuItem>
+          </Menu>
         </Box>
       )}
 
@@ -373,13 +368,11 @@ export function EntryList({
           </Typography>
         </Box>
       ) : textMode ? (
-        <Box sx={{ flex: 1, p: 1.5, display: "flex", flexDirection: "column" }}>
-          <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
-            Editing <b>{textScope.length}</b> checked rules matching the filter. One rule per line; for geosite, prefix a type if needed (for example <code>full:example.com</code>, <code>regexp:.*test.*</code> or just <code>example.com</code>).
-          </Typography>
+        <Box sx={{ flex: 1, p: 1, display: "flex" }}>
           <TextField
             multiline
             fullWidth
+            autoFocus
             value={rawText}
             onChange={(e) => setRawText(e.target.value)}
             sx={{
@@ -402,27 +395,33 @@ export function EntryList({
           {visible.map((entry, i) => {
             const config = typeConfig[entry.type] ?? typeConfig.domain;
             const key = entryKey(entry);
-            const isChecked = !excludedSet.has(key);
+            const included = !excludedSet.has(key);
             return (
               <ListItem
-                key={`${key}-${i}`}
-                onClick={() => handleToggleEntry(key)}
+                key={i}
+                onClick={editing ? () => toggleEntry(key) : undefined}
                 sx={{
                   py: 0.25,
                   minHeight: 28,
-                  cursor: "pointer",
-                  opacity: isChecked ? 1 : 0.45,
                   "&:hover": { bgcolor: "action.hover" },
+                  ...(editing && {
+                    cursor: "pointer",
+                    opacity: included ? 1 : 0.45,
+                  }),
                 }}
               >
-                <Checkbox
-                  size="small"
-                  checked={isChecked}
-                  sx={{ p: 0.25, mr: 1 }}
-                  slotProps={{
-                    input: { "aria-label": `Include ${entry.type} ${entry.value}` },
-                  }}
-                />
+                {editing && (
+                  <Checkbox
+                    size="small"
+                    checked={included}
+                    sx={{ p: 0.25, mr: 1 }}
+                    slotProps={{
+                      input: {
+                        "aria-label": `Include ${entry.type} ${entry.value}`,
+                      },
+                    }}
+                  />
+                )}
                 <Box
                   sx={{
                     display: "flex",
