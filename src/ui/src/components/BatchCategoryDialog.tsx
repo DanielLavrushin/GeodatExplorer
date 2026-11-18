@@ -28,26 +28,35 @@ interface Props {
   onDirectExport: (categories: string[]) => void;
 }
 
-/**
- * Очищает входной текст: понимает список через запятую, пробел или с новой строки,
- * а также куски JSON-конфига Xray ("geosite:...", "geoip:...", комментарии и атрибуты @)
- */
-function parseInputTokens(rawText: string): string[] {
-  if (!rawText) return [];
-  const tokens = rawText
-    .split(/[\n,;]+/)
-    .map((line) => line.replace(/\/\/.*|#.*$/g, "").trim())
-    .flatMap((line) => line.split(/\s+/))
-    .map((token) =>
-      token
-        .replace(/^["']+|["']+$/g, "")
-        .replace(/^(geosite:|geoip:)/i, "")
-        .replace(/@.*$/, "")
-        .trim()
-    )
-    .filter(Boolean);
+// geosite:google, geoip:ru@attr, ... as written in an Xray config.
+const CATEGORY_REF = /\b(geosite|geoip):([^\s"'`,;:[\]{}()@]+)/gi;
 
-  return Array.from(new Set(tokens.map((t) => t.toLowerCase())));
+/**
+ * Extracts category names from pasted text: a plain list separated by
+ * newlines, commas, semicolons or spaces, or fragments of an Xray config.
+ * Comments (# and //) are stripped from each whole line first. A line with
+ * geosite:/geoip: references contributes only references of the open file's
+ * type; any other line containing ":" is config syntax and is ignored.
+ */
+function parseInputTokens(rawText: string, fileType: string | null): string[] {
+  const tokens: string[] = [];
+  for (const rawLine of rawText.split(/\r?\n/)) {
+    const line = rawLine.replace(/\/\/.*$|#.*$/, "");
+    const refs = [...line.matchAll(CATEGORY_REF)];
+    if (refs.length > 0) {
+      for (const [, kind, name] of refs) {
+        if (!fileType || kind.toLowerCase() === fileType) tokens.push(name);
+      }
+      continue;
+    }
+    if (line.includes(":")) continue;
+    for (const token of line.split(/[\s,;"'`[\]{}()]+/)) {
+      tokens.push(token.replace(/@.*$/, ""));
+    }
+  }
+  return Array.from(
+    new Set(tokens.map((t) => t.trim().toLowerCase()).filter(Boolean)),
+  );
 }
 
 export function BatchCategoryDialog({
@@ -72,7 +81,7 @@ export function BatchCategoryDialog({
 
   // Сверяем введенный список с категориями открытого файла
   const { matched, missing } = useMemo(() => {
-    const parsedLower = parseInputTokens(rawText);
+    const parsedLower = parseInputTokens(rawText, fileType);
     const matchedList: string[] = [];
     const missingList: string[] = [];
 
@@ -86,7 +95,7 @@ export function BatchCategoryDialog({
     }
 
     return { matched: matchedList, missing: missingList };
-  }, [rawText, categoryLookup]);
+  }, [rawText, categoryLookup, fileType]);
 
   const handlePasteClipboard = async () => {
     try {
