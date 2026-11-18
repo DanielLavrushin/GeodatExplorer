@@ -153,7 +153,10 @@ export function EntryList({
 
   const visible = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
-  const activeCount = entries.length - excludedSet.size;
+  const activeCount = useMemo(
+    () => entries.filter((e) => !excludedSet.has(entryKey(e))).length,
+    [entries, excludedSet],
+  );
 
   const handleToggleEntry = (key: string) => {
     if (excludedSet.has(key)) {
@@ -224,7 +227,11 @@ export function EntryList({
               {category}
             </Typography>
             <Chip
-              label={`Выбрано: ${activeCount} / ${entries.length}`}
+              label={
+                filtered.length !== entries.length
+                  ? `${filtered.length} shown · ${activeCount} / ${entries.length} selected`
+                  : `${activeCount} / ${entries.length} selected`
+              }
               size="small"
               color={activeCount < entries.length ? "warning" : "primary"}
               variant="outlined"
