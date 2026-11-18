@@ -71,7 +71,7 @@ export function BatchCategoryDialog({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [clipboardError, setClipboardError] = useState(false);
 
-  // Таблица соответствия: нижний_регистр -> оригинальное_название в .dat файле
+  // Lower-cased name -> category name as listed for the open file
   const categoryLookup = useMemo(() => {
     const map = new Map<string, string>();
     for (const cat of availableCategories) {
@@ -80,7 +80,7 @@ export function BatchCategoryDialog({
     return map;
   }, [availableCategories]);
 
-  // Сверяем введенный список с категориями открытого файла
+  // Match the parsed names against the open file's categories
   const { matched, missing } = useMemo(() => {
     const parsedLower = parseInputTokens(rawText, fileType);
     const matchedList: string[] = [];
@@ -128,7 +128,7 @@ export function BatchCategoryDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        Выбор категорий по списку ({fileType?.toUpperCase()})
+        Select categories from a list ({fileType?.toUpperCase()})
       </DialogTitle>
 
       <DialogContent dividers>
@@ -146,7 +146,7 @@ export function BatchCategoryDialog({
               startIcon={<ContentPasteIcon />}
               onClick={handlePasteClipboard}
             >
-              Вставить из буфера
+              Paste from clipboard
             </Button>
             <Button
               variant="outlined"
@@ -154,7 +154,7 @@ export function BatchCategoryDialog({
               startIcon={<UploadFileIcon />}
               onClick={() => fileInputRef.current?.click()}
             >
-              Загрузить .txt
+              Load file
             </Button>
             <Button
               variant="text"
@@ -164,7 +164,7 @@ export function BatchCategoryDialog({
               onClick={() => setRawText("")}
               disabled={!rawText}
             >
-              Очистить
+              Clear
             </Button>
             <input
               type="file"
@@ -176,9 +176,9 @@ export function BatchCategoryDialog({
           </Stack>
 
           <TextField
-            label="Список категорий (через строку, запятую или из конфига Xray)"
+            label="Categories (one per line, comma-separated, or an Xray config)"
             placeholder={
-              'Например:\nru, private\n"geosite:youtube"\n"geosite:google"\n"geosite:category-ads-all"'
+              'For example:\nru, private\n"geosite:youtube"\n"geosite:google"\n"geosite:category-ads-all"'
             }
             multiline
             rows={7}
@@ -191,7 +191,7 @@ export function BatchCategoryDialog({
 
           <Box>
             <Typography variant="subtitle2" color="success.main" gutterBottom>
-              Найдено в файле ({matched.length} из {availableCategories.length}):
+              Found in this file ({matched.length} of {availableCategories.length}):
             </Typography>
             {matched.length > 0 ? (
               <Box
@@ -216,7 +216,7 @@ export function BatchCategoryDialog({
               </Box>
             ) : (
               <Typography variant="body2" color="text.secondary">
-                Введите или загрузите список категорий
+                Type, paste or load a list of categories
               </Typography>
             )}
           </Box>
@@ -224,7 +224,7 @@ export function BatchCategoryDialog({
           {missing.length > 0 && (
             <Alert severity="warning" sx={{ py: 0.5 }}>
               <Typography variant="caption" fontWeight="bold" display="block">
-                Не найдено в открытом файле ({missing.length}):
+                Not found in this file ({missing.length}):
               </Typography>
               <Typography variant="caption" sx={{ wordBreak: "break-word" }}>
                 {missing.join(", ")}
@@ -236,7 +236,7 @@ export function BatchCategoryDialog({
 
       <DialogActions sx={{ justifyContent: "space-between", px: 2.5, py: 1.5 }}>
         <Button onClick={onClose} color="inherit" size="small">
-          Отмена
+          Cancel
         </Button>
         <Stack direction="row" spacing={1}>
           <Button
@@ -248,7 +248,7 @@ export function BatchCategoryDialog({
               onClose();
             }}
           >
-            + Добавить к выбранным
+            + Add to checked
           </Button>
           <Button
             variant="outlined"
@@ -261,7 +261,7 @@ export function BatchCategoryDialog({
               onClose();
             }}
           >
-            Отметить только эти ({matched.length})
+            Check only these ({matched.length})
           </Button>
           <Button
             variant="contained"
@@ -274,7 +274,7 @@ export function BatchCategoryDialog({
               onClose();
             }}
           >
-            Экспорт ({matched.length})
+            Export ({matched.length})
           </Button>
         </Stack>
       </DialogActions>

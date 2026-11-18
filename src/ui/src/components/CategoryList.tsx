@@ -115,7 +115,7 @@ export function CategoryList({
     setShowOnlySelected(false);
   };
 
-  // Применение списка категорий из модального окна к чекбоксам и предпросмотру
+  // Applies the list from the batch dialog to the export checkboxes
   const handleApplyBatchSelection = (categories: string[], replace: boolean) => {
     if (replace) {
       setCheckedCategories(categories);
@@ -125,13 +125,13 @@ export function CategoryList({
       setSortSelectedFirst(true);
     }
 
-    // Сразу загружаем первую категорию из списка в правое окно для предпросмотра доменов/IP
+    // Show the first listed category's entries right away
     if (categories.length > 0 && (!selectedCategory || !categories.includes(selectedCategory))) {
       onSelectCategory(categories[0]);
     }
   };
 
-  // Общая функция экспорта переданного массива категорий
+  // Asks for a destination and exports the given categories
   const exportCategoriesList = async (categoriesToExport: string[]) => {
     if (categoriesToExport.length === 0) return;
     try {
@@ -220,12 +220,12 @@ export function CategoryList({
       <Box sx={{ px: 1, pb: 1 }}>
         <Stack direction="row" spacing={0.5} sx={{ mb: 1 }} alignItems="center">
           <Button size="small" variant="text" onClick={handleSelectAllFiltered} sx={{ minWidth: "auto", px: 1 }}>
-            Все
+            All
           </Button>
           <Button size="small" variant="text" color="inherit" onClick={handleClearSelection} sx={{ minWidth: "auto", px: 1 }}>
-            Сброс
+            Clear
           </Button>
-          <Tooltip title="Выбрать или экспортировать категории по списку (.txt / буфер обмена)">
+          <Tooltip title="Select or export categories from a list (.txt file or clipboard)">
             <Button
               size="small"
               variant="outlined"
@@ -233,11 +233,11 @@ export function CategoryList({
               onClick={() => setBatchOpen(true)}
               sx={{ minWidth: "auto", px: 1, textTransform: "none" }}
             >
-              Список
+              List
             </Button>
           </Tooltip>
           <Box sx={{ ml: "auto", display: "flex", gap: 0.5 }}>
-            <Tooltip title="Выбранные наверх">
+            <Tooltip title="Checked first">
               <Button
                 size="small"
                 variant={sortSelectedFirst ? "contained" : "outlined"}
@@ -247,7 +247,7 @@ export function CategoryList({
                 <SortIcon fontSize="small" />
               </Button>
             </Tooltip>
-            <Tooltip title="Показать только выбранные">
+            <Tooltip title="Show checked only">
               <Button
                 size="small"
                 variant={showOnlySelected ? "contained" : "outlined"}
@@ -268,7 +268,7 @@ export function CategoryList({
           disabled={checkedCategories.length === 0 || exporting}
           onClick={() => exportCategoriesList(checkedCategories)}
         >
-          Экспорт ({checkedCategories.length})
+          Export ({checkedCategories.length})
         </Button>
       </Box>
 

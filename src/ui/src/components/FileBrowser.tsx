@@ -30,9 +30,9 @@ export function FileBrowser({ file }: Props) {
   const [loading, setLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Карта снятых галочек: { category: ["domain1.com", "domain2.com"] }
+  // Unchecked rules per category, as entryKey() strings: { category: ["domain:a.com", "full:b.com"] }
   const [excludedByCat, setExcludedByCat] = useState<Record<string, string[]>>({});
-  // Карта добавленных пользователем записей: { category: [{ type: "domain", value: "my.site" }] }
+  // Rules the user added per category: { category: [{ type: "domain", value: "my.site" }] }
   const [addedByCat, setAddedByCat] = useState<Record<string, geodat.Entry[]>>({});
 
   const handleSelectCategory = async (category: string) => {
@@ -65,7 +65,7 @@ export function FileBrowser({ file }: Props) {
     }
   };
 
-  // Объединяем оригинальные записи категории и добавленные пользователем
+  // User-added rules first, then the category's own rules
   const combinedEntries = useMemo(() => {
     if (!selectedCategory) return [];
     const custom = addedByCat[selectedCategory] || [];

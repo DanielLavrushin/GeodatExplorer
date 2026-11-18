@@ -104,11 +104,11 @@ export function EntryList({
   const [sortCheckedFirst, setSortCheckedFirst] = useState(false);
   const [showOnlyChecked, setShowOnlyChecked] = useState(false);
 
-  // Поля для добавления нового сайта/IP
+  // Inputs for adding a new rule
   const [newEntryType, setNewEntryType] = useState("domain");
   const [newEntryValue, setNewEntryValue] = useState("");
 
-  // Текстовый режим редактирования
+  // Plain-text editing mode
   const [textMode, setTextMode] = useState(false);
   const [rawText, setRawText] = useState("");
   // entryKey() of the rules shown in the editor when it was opened.
@@ -189,7 +189,7 @@ export function EntryList({
     setNewEntryValue("");
   };
 
-  // Формируем строки для текстового режима с учётом текущего фильтра поиска
+  // Rules the text editor starts with: checked ones matching the filter
   const activeFilteredEntries = useMemo(
     () => filtered.filter((e) => !excludedSet.has(entryKey(e))),
     [filtered, excludedSet],
@@ -242,11 +242,11 @@ export function EntryList({
               startIcon={<EditNoteIcon />}
               onClick={() => (textMode ? handleSaveTextMode() : handleOpenTextMode())}
             >
-              {textMode ? "Применить текст" : "Режим текста"}
+              {textMode ? "Apply text" : "Edit as text"}
             </Button>
             {textMode && (
               <Button size="small" color="inherit" onClick={() => setTextMode(false)}>
-                Отмена
+                Cancel
               </Button>
             )}
 
@@ -280,10 +280,10 @@ export function EntryList({
           {!textMode && (
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
               <Button size="small" variant="text" onClick={handleSelectAllFiltered}>
-                Отметить все
+                Check all
               </Button>
               <Button size="small" variant="text" color="inherit" onClick={handleUnselectAllFiltered}>
-                Снять все
+                Uncheck all
               </Button>
               <Button
                 size="small"
@@ -291,14 +291,14 @@ export function EntryList({
                 startIcon={<SortIcon />}
                 onClick={() => setSortCheckedFirst((v) => !v)}
               >
-                Выбранные сверху
+                Checked first
               </Button>
               <Button
                 size="small"
                 variant={showOnlyChecked ? "contained" : "outlined"}
                 onClick={() => setShowOnlyChecked((v) => !v)}
               >
-                Только выбранные
+                Checked only
               </Button>
 
               <Stack direction="row" spacing={0.5} sx={{ ml: "auto" }} alignItems="center">
@@ -317,7 +317,7 @@ export function EntryList({
                 )}
                 <TextField
                   size="small"
-                  placeholder={fileType === "geoip" ? "Добавить IP/CIDR..." : "Добавить сайт..."}
+                  placeholder={fileType === "geoip" ? "Add IP/CIDR..." : "Add domain..."}
                   value={newEntryValue}
                   onChange={(e) => setNewEntryValue(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleAddSubmit()}
@@ -329,7 +329,7 @@ export function EntryList({
                   startIcon={<AddIcon />}
                   onClick={handleAddSubmit}
                 >
-                  Добавить
+                  Add
                 </Button>
               </Stack>
             </Stack>
@@ -383,7 +383,7 @@ export function EntryList({
       ) : textMode ? (
         <Box sx={{ flex: 1, p: 1.5, display: "flex", flexDirection: "column" }}>
           <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
-            Показано строк по фильтру: <b>{textScope.length}</b>. По одной записи на строку. Для geosite можно указывать префикс (например: <code>full:example.com</code>, <code>regexp:.*test.*</code> или просто <code>example.com</code>).
+            Editing <b>{textScope.length}</b> checked rules matching the filter. One rule per line; for geosite, prefix a type if needed (for example <code>full:example.com</code>, <code>regexp:.*test.*</code> or just <code>example.com</code>).
           </Typography>
           <TextField
             multiline

@@ -266,7 +266,7 @@ func SaveFilteredGeoSite(srcPath, dstPath string, selectedCategories []string, e
 			continue
 		}
 
-		// Собираем множество исключённых значений для этой категории
+		// Collect the rules the user unchecked in this category
 		exclSet := make(map[string]struct{})
 		for k, list := range excluded {
 			if strings.ToLower(k) == catKey {
@@ -283,7 +283,7 @@ func SaveFilteredGeoSite(srcPath, dstPath string, selectedCategories []string, e
 			}
 		}
 
-		// Добавляем пользовательские домены для этой категории
+		// Append the user-added rules for this category
 		for k, list := range added {
 			if strings.ToLower(k) == catKey {
 				for _, item := range list {
