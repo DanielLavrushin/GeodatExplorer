@@ -29,6 +29,9 @@ const darkTheme = createTheme({
   palette: {
     mode: "dark",
   },
+  typography: {
+    fontFamily: '"Roboto", "Liberation Sans", "Helvetica", "Arial", sans-serif',
+  },
 });
 
 function App() {

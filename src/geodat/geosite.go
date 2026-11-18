@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/netip"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -234,4 +235,101 @@ func ListGeoIPCategories(path string) ([]string, error) {
 	}
 	sort.Strings(categories)
 	return categories, nil
+}
+func SaveFilteredGeoSite(srcPath, dstPath string, selectedCategories []string, excluded map[string][]string, added map[string][]Entry) error {
+	if len(selectedCategories) == 0 {
+		return fmt.Errorf("no categories selected")
+	}
+
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		return fmt.Errorf("failed to read source file: %w", err)
+	}
+
+	geoSiteList, err := v2data.LoadGeoSiteList(data)
+	if err != nil {
+		return fmt.Errorf("failed to parse geosite data: %w", err)
+	}
+
+	targetSet := make(map[string]struct{}, len(selectedCategories))
+	for _, c := range selectedCategories {
+		targetSet[strings.ToLower(strings.TrimSpace(c))] = struct{}{}
+	}
+
+	filteredList := &v2data.GeoSiteList{
+		Entry: make([]*v2data.GeoSite, 0),
+	}
+
+	for _, site := range geoSiteList.GetEntry() {
+		catKey := strings.ToLower(site.GetCountryCode())
+		if _, ok := targetSet[catKey]; !ok {
+			continue
+		}
+
+		exclSet := make(map[string]struct{})
+		for k, list := range excluded {
+			if strings.ToLower(k) == catKey {
+				for _, val := range list {
+					exclSet[val] = struct{}{}
+				}
+			}
+		}
+
+		newDomains := make([]*v2data.Domain, 0, len(site.GetDomain()))
+		for _, d := range site.GetDomain() {
+			if _, isExcl := exclSet[entryKey(domainEntry(d))]; !isExcl {
+				newDomains = append(newDomains, d)
+			}
+		}
+
+		for k, list := range added {
+			if strings.ToLower(k) == catKey {
+				for _, item := range list {
+					val := strings.TrimSpace(item.Value)
+					if val == "" {
+						continue
+					}
+					if _, isExcl := exclSet[entryKey(item)]; isExcl {
+						continue
+					}
+					dType := v2data.Domain_Domain
+					switch strings.ToLower(item.Type) {
+					case "include":
+						val = "include:" + val
+					case "full":
+						dType = v2data.Domain_Full
+					case "keyword", "plain":
+						dType = v2data.Domain_Plain
+					case "regexp", "regex":
+						dType = v2data.Domain_Regex
+						if _, err := regexp.Compile(val); err != nil {
+							return fmt.Errorf("category %s: invalid regexp %q: %w", site.GetCountryCode(), val, err)
+						}
+					}
+					newDomains = append(newDomains, &v2data.Domain{
+						Type:  dType,
+						Value: val,
+					})
+				}
+			}
+		}
+
+		if len(newDomains) > 0 {
+			filteredList.Entry = append(filteredList.Entry, &v2data.GeoSite{
+				CountryCode: site.GetCountryCode(),
+				Domain:      newDomains,
+			})
+		}
+	}
+
+	if len(filteredList.Entry) == 0 {
+		return fmt.Errorf("none of the selected categories/entries remained after filtering")
+	}
+
+	outBytes, err := proto.Marshal(filteredList)
+	if err != nil {
+		return fmt.Errorf("failed to marshal filtered geosite: %w", err)
+	}
+
+	return os.WriteFile(dstPath, outBytes, 0644)
 }

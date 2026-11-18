@@ -117,3 +117,93 @@ func convertV2CidrToText(cidr []*v2data.CIDR, w io.Writer) error {
 	}
 	return bw.Flush()
 }
+func SaveFilteredGeoIP(srcPath, dstPath string, selectedCategories []string, excluded map[string][]string, added map[string][]Entry) error {
+	if len(selectedCategories) == 0 {
+		return fmt.Errorf("no categories selected")
+	}
+
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		return fmt.Errorf("failed to read source file: %w", err)
+	}
+
+	geoIPList, err := v2data.LoadGeoIPListFromDAT(data)
+	if err != nil {
+		return fmt.Errorf("failed to load geoip list: %w", err)
+	}
+
+	targetSet := make(map[string]struct{}, len(selectedCategories))
+	for _, c := range selectedCategories {
+		targetSet[strings.ToLower(strings.TrimSpace(c))] = struct{}{}
+	}
+
+	filteredList := &v2data.GeoIPList{
+		Entry: make([]*v2data.GeoIP, 0),
+	}
+
+	for _, entry := range geoIPList.GetEntry() {
+		catKey := strings.ToLower(entry.GetCountryCode())
+		if _, ok := targetSet[catKey]; !ok {
+			continue
+		}
+
+		exclSet := make(map[string]struct{})
+		for k, list := range excluded {
+			if strings.ToLower(k) == catKey {
+				for _, val := range list {
+					exclSet[val] = struct{}{}
+				}
+			}
+		}
+
+		newCIDRs := make([]*v2data.CIDR, 0, len(entry.GetCidr()))
+		for _, c := range entry.GetCidr() {
+			if e, ok := cidrEntry(c); ok {
+				if _, isExcl := exclSet[entryKey(e)]; isExcl {
+					continue
+				}
+			}
+			newCIDRs = append(newCIDRs, c)
+		}
+
+		for k, list := range added {
+			if strings.ToLower(k) == catKey {
+				for _, item := range list {
+					val := strings.TrimSpace(item.Value)
+					if val == "" {
+						continue
+					}
+					if _, isExcl := exclSet[entryKey(item)]; isExcl {
+						continue
+					}
+					prefix, err := parseCustomCIDR(val)
+					if err != nil {
+						return fmt.Errorf("category %s: invalid IP/CIDR %q", entry.GetCountryCode(), val)
+					}
+					newCIDRs = append(newCIDRs, &v2data.CIDR{
+						Ip:     prefix.Addr().AsSlice(),
+						Prefix: uint32(prefix.Bits()),
+					})
+				}
+			}
+		}
+
+		if len(newCIDRs) > 0 {
+			filteredList.Entry = append(filteredList.Entry, &v2data.GeoIP{
+				CountryCode: entry.GetCountryCode(),
+				Cidr:        newCIDRs,
+			})
+		}
+	}
+
+	if len(filteredList.Entry) == 0 {
+		return fmt.Errorf("none of the selected categories/entries remained after filtering")
+	}
+
+	outBytes, err := proto.Marshal(filteredList)
+	if err != nil {
+		return fmt.Errorf("failed to marshal filtered geoip: %w", err)
+	}
+
+	return os.WriteFile(dstPath, outBytes, 0644)
+}

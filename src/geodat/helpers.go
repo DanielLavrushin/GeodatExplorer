@@ -16,26 +16,7 @@ func LoadDomainsFromCategories(geodataPath string, categories []string) ([]Entry
 
 	save := func(tag string, domainList []*v2data.Domain) error {
 		for _, d := range domainList {
-			entry := Entry{Value: d.Value}
-
-			if strings.HasPrefix(d.Value, "include:") {
-				entry.Type = "include"
-				entry.Value = strings.TrimPrefix(d.Value, "include:")
-			} else {
-				switch d.Type {
-				case v2data.Domain_Plain:
-					entry.Type = "keyword"
-				case v2data.Domain_Regex:
-					entry.Type = "regexp"
-				case v2data.Domain_Full:
-					entry.Type = "full"
-				case v2data.Domain_Domain:
-					entry.Type = "domain"
-				default:
-					entry.Type = "domain"
-				}
-			}
-			allEntries = append(allEntries, entry)
+			allEntries = append(allEntries, domainEntry(d))
 		}
 		return nil
 	}
@@ -56,18 +37,9 @@ func LoadIpsFromCategories(geodataPath string, categories []string) ([]Entry, er
 
 	save := func(tag string, geo *v2data.GeoIP) error {
 		for _, cidr := range geo.GetCidr() {
-			ip, ok := netip.AddrFromSlice(cidr.Ip)
-			if !ok {
-				continue
+			if entry, ok := cidrEntry(cidr); ok {
+				allEntries = append(allEntries, entry)
 			}
-			prefix, err := ip.Prefix(int(cidr.Prefix))
-			if err != nil {
-				continue
-			}
-			allEntries = append(allEntries, Entry{
-				Type:  "cidr",
-				Value: prefix.String(),
-			})
 		}
 		return nil
 	}
@@ -77,4 +49,51 @@ func LoadIpsFromCategories(geodataPath string, categories []string) ([]Entry, er
 	}
 
 	return allEntries, nil
+}
+
+func entryKey(e Entry) string {
+	return e.Type + ":" + e.Value
+}
+
+func domainEntry(d *v2data.Domain) Entry {
+	if value, ok := strings.CutPrefix(d.GetValue(), "include:"); ok {
+		return Entry{Type: "include", Value: value}
+	}
+	entry := Entry{Type: "domain", Value: d.GetValue()}
+	switch d.GetType() {
+	case v2data.Domain_Plain:
+		entry.Type = "keyword"
+	case v2data.Domain_Regex:
+		entry.Type = "regexp"
+	case v2data.Domain_Full:
+		entry.Type = "full"
+	}
+	return entry
+}
+
+func cidrEntry(c *v2data.CIDR) (Entry, bool) {
+	ip, ok := netip.AddrFromSlice(c.GetIp())
+	if !ok {
+		return Entry{}, false
+	}
+	prefix, err := ip.Prefix(int(c.GetPrefix()))
+	if err != nil {
+		return Entry{}, false
+	}
+	return Entry{Type: "cidr", Value: prefix.String()}, true
+}
+
+func parseCustomCIDR(s string) (netip.Prefix, error) {
+	if !strings.Contains(s, "/") {
+		addr, err := netip.ParseAddr(s)
+		if err != nil {
+			return netip.Prefix{}, err
+		}
+		return netip.PrefixFrom(addr.WithZone(""), addr.BitLen()), nil
+	}
+	prefix, err := netip.ParsePrefix(s)
+	if err != nil {
+		return netip.Prefix{}, err
+	}
+	return prefix.Masked(), nil
 }

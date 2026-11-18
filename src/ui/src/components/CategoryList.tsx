@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSafeFilter } from "../lib/useSafeFilter";
 import {
   Box,
@@ -11,10 +11,12 @@ import {
   CircularProgress,
   InputAdornment,
   Tooltip,
+  Checkbox,
 } from "@mui/material";
 import { FileState } from "../types/index";
 import { SearchOptions } from "../lib/matcher";
 import { SearchOptionsToggle } from "./SearchOptionsToggle";
+import { ExportBar, ExportState } from "./ExportBar";
 
 interface Props {
   file: FileState;
@@ -25,7 +27,8 @@ interface Props {
   selectedCategory: string | null;
   onSelectCategory: (category: string) => void;
   loading: boolean;
-  searchButton?: React.ReactNode;
+  actions?: React.ReactNode;
+  exportState: ExportState | null;
 }
 
 export function CategoryList({
@@ -37,7 +40,8 @@ export function CategoryList({
   selectedCategory,
   onSelectCategory,
   loading,
-  searchButton,
+  actions,
+  exportState,
 }: Props) {
   const { indices, error: filterError } = useSafeFilter(
     file.categories,
@@ -52,6 +56,36 @@ export function CategoryList({
         : file.categories,
     [indices, file.categories],
   );
+
+  const [showSelectedOnly, setShowSelectedOnly] = useState(false);
+  const selection = exportState?.selection;
+  const selectionSet = useMemo(() => new Set(selection ?? []), [selection]);
+
+  useEffect(() => {
+    if (selectionSet.size === 0) setShowSelectedOnly(false);
+  }, [selectionSet]);
+
+  const shown = useMemo(
+    () =>
+      exportState && showSelectedOnly
+        ? filtered.filter((cat) => selectionSet.has(cat))
+        : filtered,
+    [exportState, showSelectedOnly, filtered, selectionSet],
+  );
+
+  const isModified = (cat: string) =>
+    !!exportState &&
+    ((exportState.excludedByCat[cat]?.length ?? 0) > 0 ||
+      (exportState.addedByCat[cat]?.length ?? 0) > 0);
+
+  const toggleSelected = (cat: string) => {
+    if (!exportState) return;
+    exportState.setSelection(
+      selectionSet.has(cat)
+        ? exportState.selection.filter((c) => c !== cat)
+        : [...exportState.selection, cat],
+    );
+  };
 
   return (
     <Box
@@ -99,7 +133,7 @@ export function CategoryList({
             size="small"
             variant="outlined"
           />
-          <Box sx={{ ml: "auto" }}>{searchButton}</Box>
+          <Box sx={{ ml: "auto" }}>{actions}</Box>
         </Stack>
       </Box>
       <List sx={{ flex: 1, overflow: "auto" }} dense>
@@ -108,24 +142,47 @@ export function CategoryList({
             <CircularProgress size={24} />
           </Box>
         ) : (
-          filtered.map((cat) => (
+          shown.map((cat) => (
             <ListItemButton
               key={cat}
               selected={selectedCategory === cat}
               onClick={() => onSelectCategory(cat)}
             >
+              {exportState && (
+                <Checkbox
+                  edge="start"
+                  size="small"
+                  disableRipple
+                  checked={selectionSet.has(cat)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSelected(cat);
+                  }}
+                  sx={{ p: 0.5, mr: 0.5 }}
+                  slotProps={{ input: { "aria-label": `Export ${cat}` } }}
+                />
+              )}
               <ListItemText
-                primary={
+                primary={`${
                   cat.length === 2
                     ? `${String.fromCodePoint(...[...cat.toUpperCase()].map((c) => 0x1f1e6 + (c.codePointAt(0) ?? 65) - 65))} ${cat.toUpperCase()}`
                     : `🏷️ ${cat}`
-                }
+                }${isModified(cat) ? " *" : ""}`}
                 slotProps={{ primary: { sx: { fontFamily: "monospace" } } }}
               />
             </ListItemButton>
           ))
         )}
       </List>
+      {exportState && (
+        <ExportBar
+          file={file}
+          state={exportState}
+          shownCategories={shown}
+          showSelectedOnly={showSelectedOnly}
+          onShowSelectedOnlyChange={setShowSelectedOnly}
+        />
+      )}
     </Box>
   );
 }
