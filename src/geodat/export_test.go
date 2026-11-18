@@ -113,3 +113,58 @@ func TestSaveFilteredGeoIPMasksAddedCIDRs(t *testing.T) {
 		t.Fatalf("stored records %v, want %v", got, want)
 	}
 }
+
+func TestSaveFilteredRejectsInvalidCustomEntries(t *testing.T) {
+	ipSrc := writeDat(t, &v2data.GeoIPList{Entry: []*v2data.GeoIP{{
+		CountryCode: "TEST",
+		Cidr:        []*v2data.CIDR{cidr(t, "198.51.100.0/24")},
+	}}})
+	siteSrc := writeDat(t, &v2data.GeoSiteList{Entry: []*v2data.GeoSite{{
+		CountryCode: "TEST",
+		Domain:      []*v2data.Domain{{Type: v2data.Domain_Domain, Value: "example.com"}},
+	}}})
+
+	cases := []struct {
+		name     string
+		export   func(dst string, excluded map[string][]string, added map[string][]Entry) error
+		bad      Entry
+		errMatch string
+	}{
+		{
+			name: "geoip",
+			export: func(dst string, excluded map[string][]string, added map[string][]Entry) error {
+				return SaveFilteredGeoIP(ipSrc, dst, []string{"test"}, excluded, added)
+			},
+			bad:      Entry{Type: "cidr", Value: "192.168.1.0/33"},
+			errMatch: "192.168.1.0/33",
+		},
+		{
+			name: "geosite",
+			export: func(dst string, excluded map[string][]string, added map[string][]Entry) error {
+				return SaveFilteredGeoSite(siteSrc, dst, []string{"test"}, excluded, added)
+			},
+			bad:      Entry{Type: "regexp", Value: "(unclosed"},
+			errMatch: "(unclosed",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dst := filepath.Join(t.TempDir(), "out.dat")
+			added := map[string][]Entry{"test": {tc.bad}}
+
+			err := tc.export(dst, nil, added)
+			if err == nil || !strings.Contains(err.Error(), tc.errMatch) {
+				t.Fatalf("want error naming %q, got %v", tc.errMatch, err)
+			}
+			if _, statErr := os.Stat(dst); !os.IsNotExist(statErr) {
+				t.Fatalf("output written despite error")
+			}
+
+			// An unchecked invalid entry is not exported, so it must not block.
+			excluded := map[string][]string{"test": {tc.bad.Value}}
+			if err := tc.export(dst, excluded, added); err != nil {
+				t.Fatalf("excluded invalid entry still failed: %v", err)
+			}
+		})
+	}
+}

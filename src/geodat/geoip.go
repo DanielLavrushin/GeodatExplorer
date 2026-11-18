@@ -179,7 +179,7 @@ func SaveFilteredGeoIP(srcPath, dstPath string, selectedCategories []string, exc
 					}
 					prefix, err := parseCustomCIDR(val)
 					if err != nil {
-						continue
+						return fmt.Errorf("category %s: invalid IP/CIDR %q", entry.GetCountryCode(), val)
 					}
 					newCIDRs = append(newCIDRs, &v2data.CIDR{
 						Ip:     prefix.Addr().AsSlice(),

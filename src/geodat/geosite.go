@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/netip"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -301,6 +302,11 @@ func SaveFilteredGeoSite(srcPath, dstPath string, selectedCategories []string, e
 						dType = v2data.Domain_Plain
 					case "regexp", "regex":
 						dType = v2data.Domain_Regex
+						// Xray compiles these with Go's regexp package and refuses
+						// to load the file if one is invalid.
+						if _, err := regexp.Compile(val); err != nil {
+							return fmt.Errorf("category %s: invalid regexp %q: %w", site.GetCountryCode(), val, err)
+						}
 					}
 					newDomains = append(newDomains, &v2data.Domain{
 						Type:  dType,
