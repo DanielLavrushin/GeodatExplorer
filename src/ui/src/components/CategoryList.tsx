@@ -277,9 +277,9 @@ export function CategoryList({
                   edge="start"
                   size="small"
                   checked={checkedSet.has(cat)}
-                  tabIndex={-1}
                   disableRipple
                   onClick={(e) => handleToggle(cat, e)}
+                  slotProps={{ input: { "aria-label": `Export category ${cat}` } }}
                   sx={{ mr: 0.5, p: 0.5 }}
                 />
                 <ListItemText

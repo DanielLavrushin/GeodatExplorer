@@ -420,6 +420,9 @@ export function EntryList({
                   size="small"
                   checked={isChecked}
                   sx={{ p: 0.25, mr: 1 }}
+                  slotProps={{
+                    input: { "aria-label": `Include ${entry.type} ${entry.value}` },
+                  }}
                 />
                 <Box
                   sx={{
