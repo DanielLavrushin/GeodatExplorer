@@ -178,7 +178,7 @@ export function CategoryList({
         <ExportBar
           file={file}
           state={exportState}
-          shownCategories={filtered}
+          shownCategories={shown}
           showSelectedOnly={showSelectedOnly}
           onShowSelectedOnlyChange={setShowSelectedOnly}
         />
