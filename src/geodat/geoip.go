@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"net"
 	"net/netip"
 	"os"
 	"strings"
@@ -159,10 +158,12 @@ func SaveFilteredGeoIP(srcPath, dstPath string, selectedCategories []string, exc
 
 		newCIDRs := make([]*v2data.CIDR, 0, len(entry.GetCidr()))
 		for _, c := range entry.GetCidr() {
-			cidrStr := fmt.Sprintf("%s/%d", net.IP(c.GetIp()).String(), c.GetPrefix())
-			if _, isExcl := exclSet[cidrStr]; !isExcl {
-				newCIDRs = append(newCIDRs, c)
+			if e, ok := cidrEntry(c); ok {
+				if _, isExcl := exclSet[e.Value]; isExcl {
+					continue
+				}
 			}
+			newCIDRs = append(newCIDRs, c)
 		}
 
 		// Добавляем пользовательские IP/CIDR
@@ -176,25 +177,13 @@ func SaveFilteredGeoIP(srcPath, dstPath string, selectedCategories []string, exc
 					if _, isExcl := exclSet[val]; isExcl {
 						continue
 					}
-					if !strings.Contains(val, "/") {
-						if strings.Contains(val, ":") {
-							val += "/128"
-						} else {
-							val += "/32"
-						}
-					}
-					ip, ipNet, err := net.ParseCIDR(val)
+					prefix, err := parseCustomCIDR(val)
 					if err != nil {
 						continue
 					}
-					ones, _ := ipNet.Mask.Size()
-					ipBytes := ip.To4()
-					if ipBytes == nil {
-						ipBytes = ip.To16()
-					}
 					newCIDRs = append(newCIDRs, &v2data.CIDR{
-						Ip:     ipBytes,
-						Prefix: uint32(ones),
+						Ip:     prefix.Addr().AsSlice(),
+						Prefix: uint32(prefix.Bits()),
 					})
 				}
 			}
