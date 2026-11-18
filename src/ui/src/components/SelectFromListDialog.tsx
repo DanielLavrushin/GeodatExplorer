@@ -29,11 +29,27 @@ const PLACEHOLDER: Record<string, string> = {
   geoip: 'Paste category names or part of an Xray config, e.g.\nru, private\n"geoip:cn"',
 };
 
+function stripComment(line: string): string {
+  let inString = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inString) {
+      if (ch === "\\") i++;
+      else if (ch === '"') inString = false;
+    } else if (ch === '"') {
+      inString = true;
+    } else if (ch === "#" || (ch === "/" && line[i + 1] === "/")) {
+      return line.slice(0, i);
+    }
+  }
+  return line;
+}
+
 function parseInput(rawText: string, fileType: FileType) {
   const names: string[] = [];
   const skipped: string[] = [];
   for (const rawLine of rawText.split(/\r?\n/)) {
-    const line = rawLine.replace(/\/\/.*$|#.*$/, "");
+    const line = stripComment(rawLine);
     const refs = [...line.matchAll(CATEGORY_REF)];
     if (refs.length > 0) {
       for (const [, kind, name] of refs) {
