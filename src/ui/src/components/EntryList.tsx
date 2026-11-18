@@ -116,6 +116,8 @@ export function EntryList({
 
   const excludedSet = useMemo(() => new Set(excludedValues), [excludedValues]);
 
+  // A category can hold tens of thousands of entries, so wait for a pause in
+  // typing before re-scanning them all.
   const debouncedFilter = useDebounced(filter, 150);
   const values = useMemo(() => entries.map((e) => e.value), [entries]);
   const { indices, error: filterError } = useSafeFilter(
@@ -340,6 +342,21 @@ export function EntryList({
             gap: 2,
           }}
         >
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              border: "4px solid",
+              borderColor: "primary.main",
+              borderTopColor: "transparent",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+              "@keyframes spin": {
+                "0%": { transform: "rotate(0deg)" },
+                "100%": { transform: "rotate(360deg)" },
+              },
+            }}
+          />
           <Typography variant="body2" color="text.secondary">
             Loading entries...
           </Typography>

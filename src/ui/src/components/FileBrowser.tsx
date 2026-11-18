@@ -19,6 +19,8 @@ export function FileBrowser({ file }: Props) {
   const [entries, setEntries] = useState<geodat.Entry[]>([]);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [entryFilter, setEntryFilter] = useState("");
+  // Modifiers are deliberately not reset when the category changes — they are a
+  // standing preference, unlike the filter text.
   const [categorySearchOptions, setCategorySearchOptions] =
     useState<SearchOptions>(DEFAULT_SEARCH_OPTIONS);
   const [entrySearchOptions, setEntrySearchOptions] = useState<SearchOptions>(
