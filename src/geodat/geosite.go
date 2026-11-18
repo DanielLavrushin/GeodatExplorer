@@ -278,7 +278,7 @@ func SaveFilteredGeoSite(srcPath, dstPath string, selectedCategories []string, e
 
 		newDomains := make([]*v2data.Domain, 0, len(site.GetDomain()))
 		for _, d := range site.GetDomain() {
-			if _, isExcl := exclSet[domainEntry(d).Value]; !isExcl {
+			if _, isExcl := exclSet[entryKey(domainEntry(d))]; !isExcl {
 				newDomains = append(newDomains, d)
 			}
 		}
@@ -291,11 +291,13 @@ func SaveFilteredGeoSite(srcPath, dstPath string, selectedCategories []string, e
 					if val == "" {
 						continue
 					}
-					if _, isExcl := exclSet[val]; isExcl {
+					if _, isExcl := exclSet[entryKey(item)]; isExcl {
 						continue
 					}
 					dType := v2data.Domain_Domain
 					switch strings.ToLower(item.Type) {
+					case "include":
+						val = "include:" + val
 					case "full":
 						dType = v2data.Domain_Full
 					case "keyword", "plain":

@@ -51,6 +51,13 @@ func LoadIpsFromCategories(geodataPath string, categories []string) ([]Entry, er
 	return allEntries, nil
 }
 
+// entryKey identifies a rule within a category by type and value, so rules
+// that share a value but differ in type stay distinct. The UI sends excluded
+// rules as these keys; it must match entryKey in ui/src/lib/entryKey.ts.
+func entryKey(e Entry) string {
+	return e.Type + ":" + e.Value
+}
+
 // domainEntry converts a geosite rule into the Entry shown in the UI. The
 // exporter uses the same conversion so exclusions sent back by the UI match.
 func domainEntry(d *v2data.Domain) Entry {

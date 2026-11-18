@@ -68,7 +68,7 @@ func TestSaveFilteredGeoIPExcludesByDisplayedCIDR(t *testing.T) {
 
 	dst := filepath.Join(t.TempDir(), "out.dat")
 	err := SaveFilteredGeoIP(src, dst, []string{"test"},
-		map[string][]string{"test": {"192.0.2.0/24"}}, nil)
+		map[string][]string{"test": {"cidr:192.0.2.0/24"}}, nil)
 	if err != nil {
 		t.Fatalf("export: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestSaveFilteredRejectsInvalidCustomEntries(t *testing.T) {
 			}
 
 			// An unchecked invalid entry is not exported, so it must not block.
-			excluded := map[string][]string{"test": {tc.bad.Value}}
+			excluded := map[string][]string{"test": {entryKey(tc.bad)}}
 			if err := tc.export(dst, excluded, added); err != nil {
 				t.Fatalf("excluded invalid entry still failed: %v", err)
 			}
@@ -195,11 +195,39 @@ func TestSaveFilteredGeoSiteExcludesIncludeEntries(t *testing.T) {
 
 	dst := filepath.Join(t.TempDir(), "out.dat")
 	err := SaveFilteredGeoSite(src, dst, []string{"test"},
-		map[string][]string{"test": {"google"}}, nil)
+		map[string][]string{"test": {"include:google"}}, nil)
 	if err != nil {
 		t.Fatalf("export: %v", err)
 	}
 	want := []Entry{{Type: "domain", Value: "example.com"}}
+	if got := exportedDomains(t, dst, "test"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("exported %v, want %v", got, want)
+	}
+}
+
+func TestSaveFilteredGeoSiteKeysRulesByTypeAndValue(t *testing.T) {
+	src := writeDat(t, &v2data.GeoSiteList{Entry: []*v2data.GeoSite{{
+		CountryCode: "TEST",
+		Domain: []*v2data.Domain{
+			{Type: v2data.Domain_Domain, Value: "example.com"},
+			{Type: v2data.Domain_Full, Value: "example.com"},
+		},
+	}}})
+
+	dst := filepath.Join(t.TempDir(), "out.dat")
+	err := SaveFilteredGeoSite(src, dst, []string{"test"},
+		map[string][]string{"test": {"domain:example.com", "keyword:extra"}},
+		map[string][]Entry{"test": {
+			{Type: "keyword", Value: "extra"}, // added, then unchecked
+			{Type: "include", Value: "other"},
+		}})
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	want := []Entry{
+		{Type: "full", Value: "example.com"},
+		{Type: "include", Value: "other"},
+	}
 	if got := exportedDomains(t, dst, "test"); !reflect.DeepEqual(got, want) {
 		t.Fatalf("exported %v, want %v", got, want)
 	}

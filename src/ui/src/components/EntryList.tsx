@@ -29,15 +29,17 @@ import { useDebounced } from "../lib/useDebounced";
 import { useSafeFilter } from "../lib/useSafeFilter";
 import { SearchOptionsToggle } from "./SearchOptionsToggle";
 import { FileType } from "../types";
+import { entryKey } from "../lib/entryKey";
 
 interface Props {
   category: string | null;
   fileType: FileType;
   entries: geodat.Entry[];
-  excludedValues: string[];
-  onChangeExcluded: (excluded: string[]) => void;
+  /** entryKey() of every unchecked rule. */
+  excludedKeys: string[];
+  onChangeExcluded: (excludedKeys: string[]) => void;
   onAddEntry: (entry: geodat.Entry) => void;
-  onApplyTextList: (lines: string[], scopeValues?: string[]) => void;
+  onApplyTextList: (lines: string[], scopeKeys?: string[]) => void;
   filter: string;
   onFilterChange: (value: string) => void;
   searchOptions: SearchOptions;
@@ -87,7 +89,7 @@ export function EntryList({
   category,
   fileType,
   entries,
-  excludedValues,
+  excludedKeys,
   onChangeExcluded,
   onAddEntry,
   onApplyTextList,
@@ -114,7 +116,7 @@ export function EntryList({
     setTextMode(false);
   }, [category, fileType]);
 
-  const excludedSet = useMemo(() => new Set(excludedValues), [excludedValues]);
+  const excludedSet = useMemo(() => new Set(excludedKeys), [excludedKeys]);
 
   // A category can hold tens of thousands of entries, so wait for a pause in
   // typing before re-scanning them all.
@@ -130,11 +132,11 @@ export function EntryList({
     let list = indices ? Array.from(indices, (i) => entries[i]) : entries;
 
     if (showOnlyChecked) {
-      list = list.filter((e) => !excludedSet.has(e.value));
+      list = list.filter((e) => !excludedSet.has(entryKey(e)));
     } else if (sortCheckedFirst) {
       list = [...list].sort((a, b) => {
-        const aChecked = excludedSet.has(a.value) ? 1 : 0;
-        const bChecked = excludedSet.has(b.value) ? 1 : 0;
+        const aChecked = excludedSet.has(entryKey(a)) ? 1 : 0;
+        const bChecked = excludedSet.has(entryKey(b)) ? 1 : 0;
         return aChecked - bChecked;
       });
     }
@@ -150,23 +152,23 @@ export function EntryList({
   const hasMore = visibleCount < filtered.length;
   const activeCount = entries.length - excludedSet.size;
 
-  const handleToggleEntry = (val: string) => {
-    if (excludedSet.has(val)) {
-      onChangeExcluded(excludedValues.filter((v) => v !== val));
+  const handleToggleEntry = (key: string) => {
+    if (excludedSet.has(key)) {
+      onChangeExcluded(excludedKeys.filter((k) => k !== key));
     } else {
-      onChangeExcluded([...excludedValues, val]);
+      onChangeExcluded([...excludedKeys, key]);
     }
   };
 
   const handleSelectAllFiltered = () => {
-    const filteredValues = new Set(filtered.map((e) => e.value));
-    onChangeExcluded(excludedValues.filter((v) => !filteredValues.has(v)));
+    const filteredKeys = new Set(filtered.map(entryKey));
+    onChangeExcluded(excludedKeys.filter((k) => !filteredKeys.has(k)));
   };
 
   const handleUnselectAllFiltered = () => {
-    const toExclude = new Set(excludedValues);
+    const toExclude = new Set(excludedKeys);
     for (const e of filtered) {
-      toExclude.add(e.value);
+      toExclude.add(entryKey(e));
     }
     onChangeExcluded(Array.from(toExclude));
   };
@@ -183,7 +185,7 @@ export function EntryList({
 
   // Формируем строки для текстового режима с учётом текущего фильтра поиска
   const activeFilteredEntries = useMemo(
-    () => filtered.filter((e) => !excludedSet.has(e.value)),
+    () => filtered.filter((e) => !excludedSet.has(entryKey(e))),
     [filtered, excludedSet],
   );
 
@@ -192,7 +194,7 @@ export function EntryList({
     if (!textMode) return;
     const lines = activeFilteredEntries.map((e) =>
       fileType === "geosite" && e.type !== "domain"
-        ? `${e.type}:${e.value}`
+        ? entryKey(e)
         : e.value,
     );
     setRawText(lines.join("\n"));
@@ -203,10 +205,10 @@ export function EntryList({
   };
 
   const handleSaveTextMode = () => {
-    const scopeValues = debouncedFilter.trim()
-      ? activeFilteredEntries.map((e) => e.value)
+    const scopeKeys = debouncedFilter.trim()
+      ? activeFilteredEntries.map(entryKey)
       : undefined;
-    onApplyTextList(rawText.split("\n"), scopeValues);
+    onApplyTextList(rawText.split("\n"), scopeKeys);
     setTextMode(false);
   };
 
@@ -403,11 +405,12 @@ export function EntryList({
         <Box sx={{ flex: 1, overflow: "auto" }}>
           {visible.map((entry, i) => {
             const config = typeConfig[entry.type] ?? typeConfig.domain;
-            const isChecked = !excludedSet.has(entry.value);
+            const key = entryKey(entry);
+            const isChecked = !excludedSet.has(key);
             return (
               <ListItem
-                key={`${entry.type}-${entry.value}-${i}`}
-                onClick={() => handleToggleEntry(entry.value)}
+                key={`${key}-${i}`}
+                onClick={() => handleToggleEntry(key)}
                 sx={{
                   py: 0.25,
                   minHeight: 28,

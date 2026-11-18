@@ -8,6 +8,7 @@ import { FileState } from "../types/index";
 import { geodat } from "../wailsjs/go/models";
 import { LoadDomains, LoadIPs } from "../wailsjs/go/main/App";
 import { DEFAULT_SEARCH_OPTIONS, SearchOptions } from "../lib/matcher";
+import { entryKey, GEOSITE_TEXT_TYPES } from "../lib/entryKey";
 
 interface Props {
   file: FileState;
@@ -86,25 +87,28 @@ export function FileBrowser({ file }: Props) {
 
   const handleAddEntry = (entry: geodat.Entry) => {
     if (!selectedCategory) return;
-    setAddedByCat((prev) => {
-      const existing = prev[selectedCategory] || [];
-      if (existing.some((e) => e.value === entry.value)) return prev;
-      return {
-        ...prev,
-        [selectedCategory]: [entry, ...existing],
-      };
-    });
-    // Если запись была в исключенных, убираем из исключенных
+    const key = entryKey(entry);
+    // Re-adding an original rule only needs to re-check it.
+    if (!entries.some((e) => entryKey(e) === key)) {
+      setAddedByCat((prev) => {
+        const existing = prev[selectedCategory] || [];
+        if (existing.some((e) => entryKey(e) === key)) return prev;
+        return {
+          ...prev,
+          [selectedCategory]: [entry, ...existing],
+        };
+      });
+    }
     setExcludedByCat((prev) => ({
       ...prev,
-      [selectedCategory]: (prev[selectedCategory] || []).filter((v) => v !== entry.value),
+      [selectedCategory]: (prev[selectedCategory] || []).filter((k) => k !== key),
     }));
   };
 
-  const handleApplyTextList = (textLines: string[], scopeValues?: string[]) => {
+  const handleApplyTextList = (textLines: string[], scopeKeys?: string[]) => {
     if (!selectedCategory) return;
-    const origSet = new Set(entries.map((e) => e.value));
-    const scopeSet = scopeValues ? new Set(scopeValues) : null;
+    const origKeys = new Set(entries.map(entryKey));
+    const scopeSet = scopeKeys ? new Set(scopeKeys) : null;
     const keepSet = new Set<string>();
     const parsedCustom: geodat.Entry[] = [];
 
@@ -118,16 +122,18 @@ export function FileBrowser({ file }: Props) {
       const colonIdx = line.indexOf(":");
       if (colonIdx > 0 && file.type === "geosite") {
         const prefix = line.slice(0, colonIdx).toLowerCase();
-        if (["domain", "full", "keyword", "regexp"].includes(prefix)) {
+        if (GEOSITE_TEXT_TYPES.includes(prefix)) {
           type = prefix;
           value = line.slice(colonIdx + 1).trim();
         }
       }
 
       if (!value) continue;
-      keepSet.add(value);
+      const key = entryKey({ type, value });
+      if (keepSet.has(key)) continue;
+      keepSet.add(key);
 
-      if (!origSet.has(value)) {
+      if (!origKeys.has(key)) {
         parsedCustom.push({ type, value } as geodat.Entry);
       }
     }
@@ -135,12 +141,13 @@ export function FileBrowser({ file }: Props) {
     setExcludedByCat((prev) => {
       const prevExcl = new Set(prev[selectedCategory] || []);
       for (const e of entries) {
-        // Меняем статус только тех записей, которые входили в область видимости фильтра
-        if (!scopeSet || scopeSet.has(e.value)) {
-          if (keepSet.has(e.value)) {
-            prevExcl.delete(e.value);
+        const key = entryKey(e);
+        // Only rules that were shown in the editor change state.
+        if (!scopeSet || scopeSet.has(key)) {
+          if (keepSet.has(key)) {
+            prevExcl.delete(key);
           } else {
-            prevExcl.add(e.value);
+            prevExcl.add(key);
           }
         }
       }
@@ -152,17 +159,18 @@ export function FileBrowser({ file }: Props) {
 
     setAddedByCat((prev) => {
       const prevAdded = prev[selectedCategory] || [];
-      // Сохраняем пользовательские записи, которые были скрыты фильтром
+      // Keep custom rules the editor did not show (hidden by the filter).
       const untouchedAdded = scopeSet
-        ? prevAdded.filter((e) => !scopeSet.has(e.value))
+        ? prevAdded.filter((e) => !scopeSet.has(entryKey(e)))
         : [];
       const merged = [...untouchedAdded];
-      const existingVals = new Set(merged.map((e) => e.value));
+      const existingKeys = new Set(merged.map(entryKey));
 
       for (const item of parsedCustom) {
-        if (!existingVals.has(item.value)) {
+        const key = entryKey(item);
+        if (!existingKeys.has(key)) {
           merged.push(item);
-          existingVals.add(item.value);
+          existingKeys.add(key);
         }
       }
       return {
@@ -197,7 +205,7 @@ export function FileBrowser({ file }: Props) {
         category={selectedCategory}
         fileType={file.type}
         entries={combinedEntries}
-        excludedValues={currentExcluded}
+        excludedKeys={currentExcluded}
         onChangeExcluded={handleUpdateExcluded}
         onAddEntry={handleAddEntry}
         onApplyTextList={handleApplyTextList}

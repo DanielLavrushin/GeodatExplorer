@@ -159,7 +159,7 @@ func SaveFilteredGeoIP(srcPath, dstPath string, selectedCategories []string, exc
 		newCIDRs := make([]*v2data.CIDR, 0, len(entry.GetCidr()))
 		for _, c := range entry.GetCidr() {
 			if e, ok := cidrEntry(c); ok {
-				if _, isExcl := exclSet[e.Value]; isExcl {
+				if _, isExcl := exclSet[entryKey(e)]; isExcl {
 					continue
 				}
 			}
@@ -174,7 +174,7 @@ func SaveFilteredGeoIP(srcPath, dstPath string, selectedCategories []string, exc
 					if val == "" {
 						continue
 					}
-					if _, isExcl := exclSet[val]; isExcl {
+					if _, isExcl := exclSet[entryKey(item)]; isExcl {
 						continue
 					}
 					prefix, err := parseCustomCIDR(val)
