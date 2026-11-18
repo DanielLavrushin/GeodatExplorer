@@ -140,15 +140,16 @@ export function FileBrowser({ file }: Props) {
 
     setExcludedByCat((prev) => {
       const prevExcl = new Set(prev[selectedCategory] || []);
+      // Anything listed in the editor is wanted, including rules that were
+      // unchecked or hidden by the filter when the editor opened.
+      for (const key of keepSet) {
+        prevExcl.delete(key);
+      }
+      // Rules that were shown in the editor and removed from it are unchecked.
       for (const e of entries) {
         const key = entryKey(e);
-        // Only rules that were shown in the editor change state.
-        if (!scopeSet || scopeSet.has(key)) {
-          if (keepSet.has(key)) {
-            prevExcl.delete(key);
-          } else {
-            prevExcl.add(key);
-          }
+        if ((!scopeSet || scopeSet.has(key)) && !keepSet.has(key)) {
+          prevExcl.add(key);
         }
       }
       return {
