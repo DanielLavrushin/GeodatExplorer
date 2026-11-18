@@ -51,15 +51,10 @@ func LoadIpsFromCategories(geodataPath string, categories []string) ([]Entry, er
 	return allEntries, nil
 }
 
-// entryKey identifies a rule within a category by type and value, so rules
-// that share a value but differ in type stay distinct. The UI sends excluded
-// rules as these keys; it must match entryKey in ui/src/lib/entryKey.ts.
 func entryKey(e Entry) string {
 	return e.Type + ":" + e.Value
 }
 
-// domainEntry converts a geosite rule into the Entry shown in the UI. The
-// exporter uses the same conversion so exclusions sent back by the UI match.
 func domainEntry(d *v2data.Domain) Entry {
 	if value, ok := strings.CutPrefix(d.GetValue(), "include:"); ok {
 		return Entry{Type: "include", Value: value}
@@ -76,9 +71,6 @@ func domainEntry(d *v2data.Domain) Entry {
 	return entry
 }
 
-// cidrEntry converts a geoip record into the Entry shown in the UI. Host bits
-// are masked, so a stored 192.0.2.5/24 is reported as 192.0.2.0/24. The
-// exporter uses the same conversion so exclusions sent back by the UI match.
 func cidrEntry(c *v2data.CIDR) (Entry, bool) {
 	ip, ok := netip.AddrFromSlice(c.GetIp())
 	if !ok {
@@ -91,9 +83,6 @@ func cidrEntry(c *v2data.CIDR) (Entry, bool) {
 	return Entry{Type: "cidr", Value: prefix.String()}, true
 }
 
-// parseCustomCIDR parses a user-supplied IP or CIDR. A bare address becomes a
-// single-host prefix, and host bits are masked so the stored record matches
-// what the loader displays.
 func parseCustomCIDR(s string) (netip.Prefix, error) {
 	if !strings.Contains(s, "/") {
 		addr, err := netip.ParseAddr(s)

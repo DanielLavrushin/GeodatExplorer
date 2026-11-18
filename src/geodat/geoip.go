@@ -166,7 +166,6 @@ func SaveFilteredGeoIP(srcPath, dstPath string, selectedCategories []string, exc
 			newCIDRs = append(newCIDRs, c)
 		}
 
-		// Append the user-added IPs/CIDRs
 		for k, list := range added {
 			if strings.ToLower(k) == catKey {
 				for _, item := range list {

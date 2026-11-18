@@ -28,16 +28,8 @@ interface Props {
   onDirectExport: (categories: string[]) => void;
 }
 
-// geosite:google, geoip:ru@attr, ... as written in an Xray config.
 const CATEGORY_REF = /\b(geosite|geoip):([^\s"'`,;:[\]{}()@]+)/gi;
 
-/**
- * Extracts category names from pasted text: a plain list separated by
- * newlines, commas, semicolons or spaces, or fragments of an Xray config.
- * Comments (# and //) are stripped from each whole line first. A line with
- * geosite:/geoip: references contributes only references of the open file's
- * type; any other line containing ":" is config syntax and is ignored.
- */
 function parseInputTokens(rawText: string, fileType: string | null): string[] {
   const tokens: string[] = [];
   for (const rawLine of rawText.split(/\r?\n/)) {
@@ -71,7 +63,6 @@ export function BatchCategoryDialog({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [clipboardError, setClipboardError] = useState(false);
 
-  // Lower-cased name -> category name as listed for the open file
   const categoryLookup = useMemo(() => {
     const map = new Map<string, string>();
     for (const cat of availableCategories) {
@@ -80,7 +71,6 @@ export function BatchCategoryDialog({
     return map;
   }, [availableCategories]);
 
-  // Match the parsed names against the open file's categories
   const { matched, missing } = useMemo(() => {
     const parsedLower = parseInputTokens(rawText, fileType);
     const matchedList: string[] = [];

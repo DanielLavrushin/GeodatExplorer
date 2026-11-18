@@ -30,9 +30,7 @@ export function FileBrowser({ file }: Props) {
   const [loading, setLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Unchecked rules per category, as entryKey() strings: { category: ["domain:a.com", "full:b.com"] }
   const [excludedByCat, setExcludedByCat] = useState<Record<string, string[]>>({});
-  // Rules the user added per category: { category: [{ type: "domain", value: "my.site" }] }
   const [addedByCat, setAddedByCat] = useState<Record<string, geodat.Entry[]>>({});
 
   const handleSelectCategory = async (category: string) => {
@@ -65,7 +63,6 @@ export function FileBrowser({ file }: Props) {
     }
   };
 
-  // User-added rules first, then the category's own rules
   const combinedEntries = useMemo(() => {
     if (!selectedCategory) return [];
     const custom = addedByCat[selectedCategory] || [];
@@ -88,7 +85,6 @@ export function FileBrowser({ file }: Props) {
   const handleAddEntry = (entry: geodat.Entry) => {
     if (!selectedCategory) return;
     const key = entryKey(entry);
-    // Re-adding an original rule only needs to re-check it.
     if (!entries.some((e) => entryKey(e) === key)) {
       setAddedByCat((prev) => {
         const existing = prev[selectedCategory] || [];
@@ -140,12 +136,9 @@ export function FileBrowser({ file }: Props) {
 
     setExcludedByCat((prev) => {
       const prevExcl = new Set(prev[selectedCategory] || []);
-      // Anything listed in the editor is wanted, including rules that were
-      // unchecked or hidden by the filter when the editor opened.
       for (const key of keepSet) {
         prevExcl.delete(key);
       }
-      // Rules that were shown in the editor and removed from it are unchecked.
       for (const e of entries) {
         const key = entryKey(e);
         if (scopeSet.has(key) && !keepSet.has(key)) {
@@ -160,7 +153,6 @@ export function FileBrowser({ file }: Props) {
 
     setAddedByCat((prev) => {
       const prevAdded = prev[selectedCategory] || [];
-      // Keep custom rules the editor did not show (unchecked or filtered out).
       const untouchedAdded = prevAdded.filter((e) => !scopeSet.has(entryKey(e)));
       const merged = [...untouchedAdded];
       const existingKeys = new Set(merged.map(entryKey));

@@ -115,7 +115,6 @@ export function CategoryList({
     setShowOnlySelected(false);
   };
 
-  // Applies the list from the batch dialog to the export checkboxes
   const handleApplyBatchSelection = (categories: string[], replace: boolean) => {
     if (replace) {
       setCheckedCategories(categories);
@@ -125,13 +124,11 @@ export function CategoryList({
       setSortSelectedFirst(true);
     }
 
-    // Show the first listed category's entries right away
     if (categories.length > 0 && (!selectedCategory || !categories.includes(selectedCategory))) {
       onSelectCategory(categories[0]);
     }
   };
 
-  // Asks for a destination and exports the given categories
   const exportCategoriesList = async (categoriesToExport: string[]) => {
     if (categoriesToExport.length === 0) return;
     try {
@@ -156,7 +153,6 @@ export function CategoryList({
         `Exported ${categoriesToExport.length} ${categoriesToExport.length === 1 ? "category" : "categories"} to ${savePath}`,
       );
     } catch (err) {
-      // Wails rejects with the Go error message as a plain string.
       showNotice(
         "error",
         `Export failed: ${err instanceof Error ? err.message : String(err)}`,

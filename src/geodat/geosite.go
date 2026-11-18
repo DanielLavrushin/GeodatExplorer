@@ -266,7 +266,6 @@ func SaveFilteredGeoSite(srcPath, dstPath string, selectedCategories []string, e
 			continue
 		}
 
-		// Collect the rules the user unchecked in this category
 		exclSet := make(map[string]struct{})
 		for k, list := range excluded {
 			if strings.ToLower(k) == catKey {
@@ -283,7 +282,6 @@ func SaveFilteredGeoSite(srcPath, dstPath string, selectedCategories []string, e
 			}
 		}
 
-		// Append the user-added rules for this category
 		for k, list := range added {
 			if strings.ToLower(k) == catKey {
 				for _, item := range list {
@@ -304,8 +302,6 @@ func SaveFilteredGeoSite(srcPath, dstPath string, selectedCategories []string, e
 						dType = v2data.Domain_Plain
 					case "regexp", "regex":
 						dType = v2data.Domain_Regex
-						// Xray compiles these with Go's regexp package and refuses
-						// to load the file if one is invalid.
 						if _, err := regexp.Compile(val); err != nil {
 							return fmt.Errorf("category %s: invalid regexp %q: %w", site.GetCountryCode(), val, err)
 						}

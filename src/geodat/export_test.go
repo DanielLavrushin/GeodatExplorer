@@ -28,7 +28,6 @@ func writeDat(t *testing.T, msg proto.Message) string {
 
 func cidr(t *testing.T, s string) *v2data.CIDR {
 	t.Helper()
-	// Deliberately not masked: source files may carry host bits.
 	ip, bits, _ := strings.Cut(s, "/")
 	addr, err := netip.ParseAddr(ip)
 	if err != nil {
@@ -60,7 +59,6 @@ func TestSaveFilteredGeoIPExcludesByDisplayedCIDR(t *testing.T) {
 		Cidr:        []*v2data.CIDR{cidr(t, "192.0.2.5/24"), cidr(t, "198.51.100.0/24")},
 	}}})
 
-	// The UI shows the first record as 192.0.2.0/24, so that is what it sends.
 	shown := exportedIPs(t, src, "test")
 	if !reflect.DeepEqual(shown, []string{"192.0.2.0/24", "198.51.100.0/24"}) {
 		t.Fatalf("loader shows %v", shown)
@@ -160,7 +158,6 @@ func TestSaveFilteredRejectsInvalidCustomEntries(t *testing.T) {
 				t.Fatalf("output written despite error")
 			}
 
-			// An unchecked invalid entry is not exported, so it must not block.
 			excluded := map[string][]string{"test": {entryKey(tc.bad)}}
 			if err := tc.export(dst, excluded, added); err != nil {
 				t.Fatalf("excluded invalid entry still failed: %v", err)
@@ -187,7 +184,6 @@ func TestSaveFilteredGeoSiteExcludesIncludeEntries(t *testing.T) {
 		},
 	}}})
 
-	// The UI shows the include rule with its prefix stripped.
 	shown := exportedDomains(t, src, "test")
 	if shown[0] != (Entry{Type: "include", Value: "google"}) {
 		t.Fatalf("loader shows %v", shown)
@@ -218,7 +214,7 @@ func TestSaveFilteredGeoSiteKeysRulesByTypeAndValue(t *testing.T) {
 	err := SaveFilteredGeoSite(src, dst, []string{"test"},
 		map[string][]string{"test": {"domain:example.com", "keyword:extra"}},
 		map[string][]Entry{"test": {
-			{Type: "keyword", Value: "extra"}, // added, then unchecked
+			{Type: "keyword", Value: "extra"},
 			{Type: "include", Value: "other"},
 		}})
 	if err != nil {

@@ -35,11 +35,9 @@ interface Props {
   category: string | null;
   fileType: FileType;
   entries: geodat.Entry[];
-  /** entryKey() of every unchecked rule. */
   excludedKeys: string[];
   onChangeExcluded: (excludedKeys: string[]) => void;
   onAddEntry: (entry: geodat.Entry) => void;
-  /** scopeKeys: entryKey() of every rule the editor showed. */
   onApplyTextList: (lines: string[], scopeKeys: string[]) => void;
   filter: string;
   onFilterChange: (value: string) => void;
@@ -104,14 +102,11 @@ export function EntryList({
   const [sortCheckedFirst, setSortCheckedFirst] = useState(false);
   const [showOnlyChecked, setShowOnlyChecked] = useState(false);
 
-  // Inputs for adding a new rule
   const [newEntryType, setNewEntryType] = useState("domain");
   const [newEntryValue, setNewEntryValue] = useState("");
 
-  // Plain-text editing mode
   const [textMode, setTextMode] = useState(false);
   const [rawText, setRawText] = useState("");
-  // entryKey() of the rules shown in the editor when it was opened.
   const [textScope, setTextScope] = useState<string[]>([]);
 
   useEffect(() => {
@@ -189,14 +184,11 @@ export function EntryList({
     setNewEntryValue("");
   };
 
-  // Rules the text editor starts with: checked ones matching the filter
   const activeFilteredEntries = useMemo(
     () => filtered.filter((e) => !excludedSet.has(entryKey(e))),
     [filtered, excludedSet],
   );
 
-  // The editor works on a snapshot taken when it opens: later filter changes
-  // must neither overwrite the draft nor change which rules Apply affects.
   const handleOpenTextMode = () => {
     const lines = activeFilteredEntries.map((e) =>
       fileType === "geosite" && e.type !== "domain" ? entryKey(e) : e.value,
