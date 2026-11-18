@@ -278,7 +278,7 @@ func SaveFilteredGeoSite(srcPath, dstPath string, selectedCategories []string, e
 
 		newDomains := make([]*v2data.Domain, 0, len(site.GetDomain()))
 		for _, d := range site.GetDomain() {
-			if _, isExcl := exclSet[d.GetValue()]; !isExcl {
+			if _, isExcl := exclSet[domainEntry(d).Value]; !isExcl {
 				newDomains = append(newDomains, d)
 			}
 		}

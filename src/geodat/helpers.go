@@ -16,26 +16,7 @@ func LoadDomainsFromCategories(geodataPath string, categories []string) ([]Entry
 
 	save := func(tag string, domainList []*v2data.Domain) error {
 		for _, d := range domainList {
-			entry := Entry{Value: d.Value}
-
-			if strings.HasPrefix(d.Value, "include:") {
-				entry.Type = "include"
-				entry.Value = strings.TrimPrefix(d.Value, "include:")
-			} else {
-				switch d.Type {
-				case v2data.Domain_Plain:
-					entry.Type = "keyword"
-				case v2data.Domain_Regex:
-					entry.Type = "regexp"
-				case v2data.Domain_Full:
-					entry.Type = "full"
-				case v2data.Domain_Domain:
-					entry.Type = "domain"
-				default:
-					entry.Type = "domain"
-				}
-			}
-			allEntries = append(allEntries, entry)
+			allEntries = append(allEntries, domainEntry(d))
 		}
 		return nil
 	}
@@ -68,6 +49,24 @@ func LoadIpsFromCategories(geodataPath string, categories []string) ([]Entry, er
 	}
 
 	return allEntries, nil
+}
+
+// domainEntry converts a geosite rule into the Entry shown in the UI. The
+// exporter uses the same conversion so exclusions sent back by the UI match.
+func domainEntry(d *v2data.Domain) Entry {
+	if value, ok := strings.CutPrefix(d.GetValue(), "include:"); ok {
+		return Entry{Type: "include", Value: value}
+	}
+	entry := Entry{Type: "domain", Value: d.GetValue()}
+	switch d.GetType() {
+	case v2data.Domain_Plain:
+		entry.Type = "keyword"
+	case v2data.Domain_Regex:
+		entry.Type = "regexp"
+	case v2data.Domain_Full:
+		entry.Type = "full"
+	}
+	return entry
 }
 
 // cidrEntry converts a geoip record into the Entry shown in the UI. Host bits

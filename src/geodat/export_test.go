@@ -168,3 +168,39 @@ func TestSaveFilteredRejectsInvalidCustomEntries(t *testing.T) {
 		})
 	}
 }
+
+func exportedDomains(t *testing.T, path, category string) []Entry {
+	t.Helper()
+	entries, err := LoadDomainsFromCategories(path, []string{category})
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	return entries
+}
+
+func TestSaveFilteredGeoSiteExcludesIncludeEntries(t *testing.T) {
+	src := writeDat(t, &v2data.GeoSiteList{Entry: []*v2data.GeoSite{{
+		CountryCode: "TEST",
+		Domain: []*v2data.Domain{
+			{Type: v2data.Domain_Domain, Value: "include:google"},
+			{Type: v2data.Domain_Domain, Value: "example.com"},
+		},
+	}}})
+
+	// The UI shows the include rule with its prefix stripped.
+	shown := exportedDomains(t, src, "test")
+	if shown[0] != (Entry{Type: "include", Value: "google"}) {
+		t.Fatalf("loader shows %v", shown)
+	}
+
+	dst := filepath.Join(t.TempDir(), "out.dat")
+	err := SaveFilteredGeoSite(src, dst, []string{"test"},
+		map[string][]string{"test": {"google"}}, nil)
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	want := []Entry{{Type: "domain", Value: "example.com"}}
+	if got := exportedDomains(t, dst, "test"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("exported %v, want %v", got, want)
+	}
+}
