@@ -39,7 +39,8 @@ interface Props {
   excludedKeys: string[];
   onChangeExcluded: (excludedKeys: string[]) => void;
   onAddEntry: (entry: geodat.Entry) => void;
-  onApplyTextList: (lines: string[], scopeKeys?: string[]) => void;
+  /** scopeKeys: entryKey() of every rule the editor showed. */
+  onApplyTextList: (lines: string[], scopeKeys: string[]) => void;
   filter: string;
   onFilterChange: (value: string) => void;
   searchOptions: SearchOptions;
@@ -110,6 +111,8 @@ export function EntryList({
   // Текстовый режим редактирования
   const [textMode, setTextMode] = useState(false);
   const [rawText, setRawText] = useState("");
+  // entryKey() of the rules shown in the editor when it was opened.
+  const [textScope, setTextScope] = useState<string[]>([]);
 
   useEffect(() => {
     setNewEntryType(fileType === "geoip" ? "cidr" : "domain");
@@ -189,26 +192,19 @@ export function EntryList({
     [filtered, excludedSet],
   );
 
-  // Когда меняется поисковый фильтр в текстовом режиме, обновляем видимый текст
-  useEffect(() => {
-    if (!textMode) return;
+  // The editor works on a snapshot taken when it opens: later filter changes
+  // must neither overwrite the draft nor change which rules Apply affects.
+  const handleOpenTextMode = () => {
     const lines = activeFilteredEntries.map((e) =>
-      fileType === "geosite" && e.type !== "domain"
-        ? entryKey(e)
-        : e.value,
+      fileType === "geosite" && e.type !== "domain" ? entryKey(e) : e.value,
     );
     setRawText(lines.join("\n"));
-  }, [textMode, activeFilteredEntries, fileType]);
-
-  const handleOpenTextMode = () => {
+    setTextScope(activeFilteredEntries.map(entryKey));
     setTextMode(true);
   };
 
   const handleSaveTextMode = () => {
-    const scopeKeys = debouncedFilter.trim()
-      ? activeFilteredEntries.map(entryKey)
-      : undefined;
-    onApplyTextList(rawText.split("\n"), scopeKeys);
+    onApplyTextList(rawText.split("\n"), textScope);
     setTextMode(false);
   };
 
@@ -254,6 +250,7 @@ export function EntryList({
                   searchOptions.regex ? "Filter by regex..." : "Filter entries..."
                 }
                 value={filter}
+                disabled={textMode}
                 error={!!filterError}
                 onChange={(e) => onFilterChange(e.target.value)}
                 sx={{ ml: "auto", width: 260 }}
@@ -379,7 +376,7 @@ export function EntryList({
       ) : textMode ? (
         <Box sx={{ flex: 1, p: 1.5, display: "flex", flexDirection: "column" }}>
           <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
-            Показано строк по фильтру: <b>{activeFilteredEntries.length}</b>. По одной записи на строку. Для geosite можно указывать префикс (например: <code>full:example.com</code>, <code>regexp:.*test.*</code> или просто <code>example.com</code>).
+            Показано строк по фильтру: <b>{textScope.length}</b>. По одной записи на строку. Для geosite можно указывать префикс (например: <code>full:example.com</code>, <code>regexp:.*test.*</code> или просто <code>example.com</code>).
           </Typography>
           <TextField
             multiline

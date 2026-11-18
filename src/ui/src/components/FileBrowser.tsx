@@ -105,10 +105,10 @@ export function FileBrowser({ file }: Props) {
     }));
   };
 
-  const handleApplyTextList = (textLines: string[], scopeKeys?: string[]) => {
+  const handleApplyTextList = (textLines: string[], scopeKeys: string[]) => {
     if (!selectedCategory) return;
     const origKeys = new Set(entries.map(entryKey));
-    const scopeSet = scopeKeys ? new Set(scopeKeys) : null;
+    const scopeSet = new Set(scopeKeys);
     const keepSet = new Set<string>();
     const parsedCustom: geodat.Entry[] = [];
 
@@ -148,7 +148,7 @@ export function FileBrowser({ file }: Props) {
       // Rules that were shown in the editor and removed from it are unchecked.
       for (const e of entries) {
         const key = entryKey(e);
-        if ((!scopeSet || scopeSet.has(key)) && !keepSet.has(key)) {
+        if (scopeSet.has(key) && !keepSet.has(key)) {
           prevExcl.add(key);
         }
       }
@@ -160,10 +160,8 @@ export function FileBrowser({ file }: Props) {
 
     setAddedByCat((prev) => {
       const prevAdded = prev[selectedCategory] || [];
-      // Keep custom rules the editor did not show (hidden by the filter).
-      const untouchedAdded = scopeSet
-        ? prevAdded.filter((e) => !scopeSet.has(entryKey(e)))
-        : [];
+      // Keep custom rules the editor did not show (unchecked or filtered out).
+      const untouchedAdded = prevAdded.filter((e) => !scopeSet.has(entryKey(e)));
       const merged = [...untouchedAdded];
       const existingKeys = new Set(merged.map(entryKey));
 
